@@ -3,116 +3,51 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
 import ExpenseForm from '../../components/common/ExpenseForm';
-import api from '../../services/api';
-import { CreditCard, CheckSquare, Square, RefreshCcw, Check, Sparkles } from 'lucide-react';
+import StatusBadge from '../../components/common/StatusBadge';
+import { INITIAL_CLAIMS } from '../../constants/mockData';
+import { CreditCard, CheckSquare, Square, RefreshCcw, Check, ShieldCheck, Eye } from 'lucide-react';
 
 const FinanceDashboard = () => {
-  const [metrics, setMetrics] = useState(null);
+  const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedClaims, setSelectedClaims] = useState([]);
   const [processing, setProcessing] = useState(false);
 
-  // Drawer States
+  // Drawer popup states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeClaimData, setActiveClaimData] = useState(null);
+  const [formMode, setFormMode] = useState('Approved');
+
   const [erpSyncLogs, setErpSyncLogs] = useState([
-    { timestamp: '2026-07-24 12:40', voucher: 'ORACLE-EXP-1721805624', claimId: 'EXP-102' },
-    { timestamp: '2026-07-24 12:35', voucher: 'ORACLE-EXP-1721805315', claimId: 'EXP-90' },
+    { timestamp: '2026-07-24 12:40', voucher: 'ORACLE-EXP-1721805624', claimId: 'EXP-2026-102' },
+    { timestamp: '2026-07-24 12:35', voucher: 'ORACLE-EXP-1721805315', claimId: 'EXP-2026-90' },
   ]);
 
-  const mockReceiptUrl = 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop';
-
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        const response = await api.get('/dashboard/metrics');
-        setMetrics(response.data);
-      } catch (err) {
-        console.warn('Dashboard fetch failed, using local simulation fallback:', err);
-        setMetrics({
-          totalDisbursedThisMonth: 145000,
-          pendingPayoutAmount: 18600,
-          unprocessedClaimsCount: 3,
-          auditAlertsCount: 1,
-          recentClaims: [
-            {
-              id: 'EXP-102',
-              employee: 'John Employee',
-              amount: 700,
-              category: 'Travel',
-              date: '2026-07-18',
-              status: 'APPROVED',
-              merchant: 'Ola Fleet Technologies',
-              invoiceNumber: 'INV-OLA-9923',
-              currency: 'INR',
-              tax: 35.0,
-              department: 'Sales',
-              costCenter: 'CC-SLS-101',
-              projectCode: 'PROJ-IND-CLIENT',
-              expenseType: 'Reimbursable',
-              description: 'Travel from office to client site for project alignment meeting.',
-              receiptUrl: mockReceiptUrl,
-              ocrOverallScore: 89,
-              ocrTimestamp: '2026-07-18T16:00:00Z',
-              ocrConfidence: { merchant: 92, invoiceNumber: 85, amount: 95, tax: 80, date: 90, category: 88 },
-              employeeNotes: 'Ola taxi receipt.',
-              managerComments: 'Approved. Client meeting trip.',
-            },
-            {
-              id: 'EXP-105',
-              employee: 'Sam Finance',
-              amount: 15400,
-              category: 'Hardware Purchase',
-              date: '2026-07-15',
-              status: 'APPROVED',
-              merchant: 'Airtel Tech Store',
-              invoiceNumber: 'INV-ART-4412',
-              currency: 'INR',
-              tax: 2349.15,
-              department: 'Finance',
-              costCenter: 'CC-FIN-102',
-              projectCode: 'PROJ-CORE-INFRA',
-              expenseType: 'Corporate Card',
-              description: 'Testing phone devices for corporate sim test layouts.',
-              receiptUrl: mockReceiptUrl,
-              ocrOverallScore: 97,
-              ocrTimestamp: '2026-07-15T11:00:00Z',
-              ocrConfidence: { merchant: 99, invoiceNumber: 95, amount: 98, tax: 96, date: 98, category: 97 },
-              employeeNotes: 'Approved budget purchase.',
-              managerComments: 'Approved hardware expense.',
-            },
-            {
-              id: 'EXP-106',
-              employee: 'Jane Dev',
-              amount: 2500,
-              category: 'Meals',
-              date: '2026-07-14',
-              status: 'APPROVED',
-              merchant: 'Taj Buffet Lounge',
-              invoiceNumber: 'INV-TAJ-4431',
-              currency: 'INR',
-              tax: 381.35,
-              department: 'Engineering',
-              costCenter: 'CC-ENG-402',
-              projectCode: 'PROJ-AIR-5G',
-              expenseType: 'Reimbursable',
-              description: 'Client buffet lunch meeting.',
-              receiptUrl: mockReceiptUrl,
-              ocrOverallScore: 78, // Low confidence
-              ocrTimestamp: '2026-07-14T14:30:00Z',
-              ocrConfidence: { merchant: 85, invoiceNumber: 74, amount: 92, tax: 68, date: 88, category: 70 },
-              employeeNotes: 'Business lunch.',
-              managerComments: 'Approved.',
-            },
-          ]
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
+    // Simulate loading delay
+    setTimeout(() => {
+      setClaims(INITIAL_CLAIMS);
+      setLoading(false);
+    }, 400);
   }, []);
+
+  // Compute metrics totals (global corporate view)
+  const getMetrics = () => {
+    const counts = { Draft: 0, Submitted: 0, Approved: 0, Returned: 0, Reimbursed: 0 };
+    
+    claims.forEach((claim) => {
+      if (counts[claim.status] !== undefined) {
+        counts[claim.status]++;
+      }
+    });
+
+    return counts;
+  };
+
+  const metrics = getMetrics();
+
+  // Pending payouts are claims with status 'Approved'
+  const pendingPayouts = claims.filter((claim) => claim.status === 'Approved');
 
   const toggleSelectClaim = (id) => {
     if (selectedClaims.includes(id)) {
@@ -123,78 +58,58 @@ const FinanceDashboard = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedClaims.length === metrics?.recentClaims?.length) {
+    if (selectedClaims.length === pendingPayouts.length) {
       setSelectedClaims([]);
     } else {
-      setSelectedClaims(metrics?.recentClaims?.map((claim) => claim.id) || []);
+      setSelectedClaims(pendingPayouts.map((claim) => claim.id));
     }
+  };
+
+  const handleLocalDisbursement = (claimIds, decision = 'Reimbursed', comments = '') => {
+    const claimsToPay = claims.filter((claim) => claimIds.includes(claim.id));
+    
+    // Generate new ERP sync logs
+    const newLogs = claimsToPay.map(claim => ({
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      voucher: `ORACLE-EXP-${Math.floor(Math.random() * 90000000) + 10000000}`,
+      claimId: claim.id
+    }));
+
+    const updatedClaims = claims.map((claim) =>
+      claimIds.includes(claim.id)
+        ? { ...claim, status: decision, financeComments: comments || 'Payment settled.' }
+        : claim
+    );
+
+    setClaims(updatedClaims);
+    setErpSyncLogs(prev => [...newLogs, ...prev]);
   };
 
   const executePayoutAction = async (claimId, action, comments = '') => {
     setProcessing(true);
-    try {
-      // Calls backend payout processing `/api/v1/finance/bulk-process`
-      await api.post('/finance/bulk-process', {
-        claimIds: [claimId],
-        action: action === 'PROCESSED' ? 'PROCESS_PAYMENT' : 'REJECT_PAYMENT',
-        remarks: comments,
-      });
-
-      // Local state adjustment
-      handleLocalDisbursement([claimId]);
-    } catch (err) {
-      console.error('[Finance Payout] Process failed, applying local simulation:', err);
-      handleLocalDisbursement([claimId]);
-    } finally {
+    // Simulate latency
+    setTimeout(() => {
+      // Map action callback (Reimbursed represents payment disbursed)
+      handleLocalDisbursement([claimId], action, comments);
       setProcessing(false);
       setIsFormOpen(false);
-    }
-  };
-
-  const handleLocalDisbursement = (claimIds) => {
-    const claimsToPay = metrics.recentClaims.filter((claim) => claimIds.includes(claim.id));
-    const paidTotal = claimsToPay.reduce((sum, claim) => sum + claim.amount, 0);
-
-    // Generate new ERP sync logs
-    const newLogs = claimsToPay.map(claim => ({
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      voucher: `ORACLE-EXP-${Date.now()}`,
-      claimId: claim.id
-    }));
-
-    setMetrics((prev) => ({
-      ...prev,
-      totalDisbursedThisMonth: prev.totalDisbursedThisMonth + paidTotal,
-      pendingPayoutAmount: Math.max(0, prev.pendingPayoutAmount - paidTotal),
-      unprocessedClaimsCount: Math.max(0, prev.unprocessedClaimsCount - claimIds.length),
-      recentClaims: prev.recentClaims.filter((claim) => !claimIds.includes(claim.id)),
-    }));
-
-    setErpSyncLogs(prev => [...newLogs, ...prev]);
+    }, 450);
   };
 
   const handleBulkDisbursement = async () => {
     if (selectedClaims.length === 0) return;
     setProcessing(true);
 
-    try {
-      await api.post('/finance/bulk-process', {
-        claimIds: selectedClaims,
-        action: 'PROCESS_PAYMENT',
-      });
-      handleLocalDisbursement(selectedClaims);
+    setTimeout(() => {
+      handleLocalDisbursement(selectedClaims, 'Reimbursed', 'Bulk processed disbursement.');
       setSelectedClaims([]);
-    } catch (err) {
-      console.error('[Finance Payout] Bulk process failed, using local simulation fallback:', err);
-      handleLocalDisbursement(selectedClaims);
-      setSelectedClaims([]);
-    } finally {
       setProcessing(false);
-    }
+    }, 600);
   };
 
   const handleRowClick = (claim) => {
     setActiveClaimData(claim);
+    setFormMode(claim.status);
     setIsFormOpen(true);
   };
 
@@ -203,58 +118,62 @@ const FinanceDashboard = () => {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in font-sans">
       {/* Welcome Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
-            Finance Controller Desk
-          </h1>
-          <p className="text-sm text-slate-500">
-            Audit general ledger records, view AI policy alerts, and bulk disburse payouts synced to Oracle GL.
-          </p>
-        </div>
+      <div className="text-left">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
+          Finance Controller Desk
+        </h1>
+        <p className="text-sm text-slate-500">
+          Verify general ledger items, inspect compliance alerts, and disburse payouts synced to Oracle GL.
+        </p>
       </div>
 
-      {/* Metric Cards Grid */}
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card className="border-l-4 border-l-red-500">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Claims for Payment</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
-              {metrics?.unprocessedClaimsCount || 0}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Claims approved</span>
+      {/* 5-Card Metrics Summaries Grid */}
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-5">
+        
+        {/* Card 1: Drafts */}
+        <Card className="border-t-4 border-t-slate-400 p-4 hover:scale-102 transition-transform">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Drafts</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-800 font-display">{metrics.Draft}</span>
+            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold font-sans">Unfiled</span>
           </div>
         </Card>
 
-        <Card className="border-l-4 border-l-amber-500">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Pending Payout</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
-              ₹{metrics?.pendingPayoutAmount?.toLocaleString('en-IN') || '0'}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Approved liability</span>
+        {/* Card 2: Submitted */}
+        <Card className="border-t-4 border-t-blue-500 p-4 hover:scale-102 transition-transform">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending Reviews</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-800 font-display">{metrics.Submitted}</span>
+            <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold font-sans">Awaiting</span>
           </div>
         </Card>
 
-        <Card className="border-l-4 border-l-emerald-500">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Disbursed This Month</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
-              ₹{metrics?.totalDisbursedThisMonth?.toLocaleString('en-IN') || '0'}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Settled transactions</span>
+        {/* Card 3: Approved */}
+        <Card className="border-t-4 border-t-emerald-500 p-4 hover:scale-102 transition-transform">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approved Payouts</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-800 font-display text-emerald-600">{metrics.Approved}</span>
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold font-sans">Awaiting Pay</span>
           </div>
         </Card>
 
-        <Card className="border-l-4 border-l-slate-800">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Audit Alert Indicators</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-slate-800 font-display text-rose-600">
-              {metrics?.auditAlertsCount || 0}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Exception flags</span>
+        {/* Card 4: Returned */}
+        <Card className="border-t-4 border-t-amber-500 p-4 hover:scale-102 transition-transform">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Returned Drafts</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-800 font-display text-amber-600">{metrics.Returned}</span>
+            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold font-sans">Rejected</span>
+          </div>
+        </Card>
+
+        {/* Card 5: Reimbursed */}
+        <Card className="border-t-4 border-t-green-600 p-4 hover:scale-102 transition-transform">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Settled Ledger</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-800 font-display text-emerald-700">{metrics.Reimbursed}</span>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold font-sans">Reimbursed</span>
           </div>
         </Card>
       </div>
@@ -269,7 +188,7 @@ const FinanceDashboard = () => {
               size="sm"
               loading={processing}
               onClick={handleBulkDisbursement}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 shadow-sm"
             >
               <CreditCard className="h-4 w-4" />
               Disburse {selectedClaims.length} Claims
@@ -277,7 +196,7 @@ const FinanceDashboard = () => {
           )
         }
       >
-        {metrics?.recentClaims?.length === 0 ? (
+        {pendingPayouts.length === 0 ? (
           <div className="py-8 text-center text-slate-500">
             <Check className="mx-auto h-12 w-12 text-emerald-500 mb-2" />
             <p className="font-semibold">All payouts disbursed</p>
@@ -293,7 +212,7 @@ const FinanceDashboard = () => {
                       onClick={toggleSelectAll}
                       className="text-slate-500 hover:text-red-600"
                     >
-                      {selectedClaims.length === metrics?.recentClaims?.length ? (
+                      {selectedClaims.length === pendingPayouts.length ? (
                         <CheckSquare className="h-5 w-5 text-red-600" />
                       ) : (
                         <Square className="h-5 w-5" />
@@ -302,22 +221,24 @@ const FinanceDashboard = () => {
                   </th>
                   <th className="py-3 px-4">Claim ID</th>
                   <th className="py-3 px-4">Employee</th>
-                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Category Details</th>
                   <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                {metrics?.recentClaims?.map((claim) => (
+                {pendingPayouts.map((claim) => (
                   <tr
                     key={claim.id}
                     onClick={() => handleRowClick(claim)}
-                    className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                    className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
                   >
                     <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => toggleSelectClaim(claim.id)}
-                        className="text-slate-500 hover:text-red-600"
+                        className="text-slate-500 hover:text-red-600 animate-fade-in"
                       >
                         {selectedClaims.includes(claim.id) ? (
                           <CheckSquare className="h-5 w-5 text-red-600" />
@@ -328,10 +249,12 @@ const FinanceDashboard = () => {
                     </td>
                     <td className="py-4 px-4 font-semibold text-slate-500 font-mono">{claim.id}</td>
                     <td className="py-4 px-4">
-                      <div className="font-bold text-slate-800">{claim.employee}</div>
+                      <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
+                        {claim.employee}
+                      </div>
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                    <td className="py-4 px-4 text-left">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-700">
                         {claim.category}
                         {claim.ocrOverallScore < 80 && (
                           <span className="inline-flex text-[9px] font-bold text-amber-600 bg-amber-50 px-1 rounded border border-amber-200">
@@ -339,10 +262,27 @@ const FinanceDashboard = () => {
                           </span>
                         )}
                       </div>
+                      <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{claim.description}</p>
                     </td>
-                    <td className="py-4 px-4 text-slate-500">{claim.date}</td>
-                    <td className="py-4 px-4 text-right font-bold text-slate-900">
+                    <td className="py-4 px-4 text-slate-500 font-sans">{claim.date}</td>
+                    <td className="py-4 px-4">
+                      <StatusBadge status={claim.status} />
+                    </td>
+                    <td className="py-4 px-4 text-right font-extrabold text-slate-900">
                       ₹{claim.amount.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="hover:border-slate-400 hover:bg-slate-50 text-slate-700 flex items-center gap-1"
+                          onClick={() => handleRowClick(claim)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Review
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -354,7 +294,7 @@ const FinanceDashboard = () => {
 
       {/* Oracle Integration visual logger */}
       <Card title="Oracle ERP Sync Monitor" className="bg-slate-50/30 border-dashed">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-4 text-left">
           <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
             <RefreshCcw className="h-5 w-5 animate-spin" style={{ animationDuration: '4s' }} />
           </div>
@@ -368,18 +308,18 @@ const FinanceDashboard = () => {
                 </p>
               ))}
             </div>
-            <p className="text-[10px] text-slate-400 leading-normal">
+            <p className="text-[10px] text-slate-400 leading-normal font-sans font-medium">
               Disbursing payments sends transaction lines directly to the Oracle database mapping service in `src/integrations/oracle/`. The database hooks can be replaced in production with live Oracle CLI connectivity wrappers without altering frontend visual states.
             </p>
           </div>
         </div>
       </Card>
 
-      {/* Reusable ExpenseForm Drawer (Finance Audit Context) */}
+      {/* Reusable ExpenseForm Drawer Popup (Finance audit context) */}
       <ExpenseForm
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        mode="VIEW_APPROVED"
+        mode={formMode}
         data={activeClaimData}
         onAction={executePayoutAction}
         userRole="Finance"
