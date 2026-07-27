@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle, MessageSquare } from 'lucide-react';
 import Button from '../ui/Button';
 
@@ -11,7 +12,7 @@ import Comments from './Comments';
 import ActionButtons from './ActionButtons';
 
 /**
- * Orchestrator component for the right-side Expense Claim drawer form popup
+ * Orchestrator component for the centered Expense Claim modal pop-up
  */
 const ExpenseForm = ({
   isOpen,
@@ -43,6 +44,8 @@ const ExpenseForm = ({
   });
 
   const [receiptUrl, setReceiptUrl] = useState(null);
+  const [fileName, setFileName] = useState('');
+  const [fileType, setFileType] = useState('');
   const [errors, setErrors] = useState({});
   const [processing, setProcessing] = useState(false);
 
@@ -51,6 +54,7 @@ const ExpenseForm = ({
   const [returnRemarks, setReturnRemarks] = useState('');
 
   const isEditable = mode === 'Create' || mode === 'Draft' || mode === 'Returned';
+  const isCreateLayout = mode === 'Create' || mode === 'Draft';
 
   // Synchronize incoming data
   useEffect(() => {
@@ -76,6 +80,8 @@ const ExpenseForm = ({
         financeComments: data.financeComments || '',
       });
       setReceiptUrl(data.receiptUrl || null);
+      setFileName(data.fileName || (data.receiptUrl ? 'receipt_document' : ''));
+      setFileType(data.fileType || '');
     } else {
       // Setup empty form defaults for Create
       setFormData({
@@ -97,6 +103,8 @@ const ExpenseForm = ({
         financeComments: '',
       });
       setReceiptUrl(null);
+      setFileName('');
+      setFileType('');
     }
 
     setErrors({});
@@ -120,6 +128,8 @@ const ExpenseForm = ({
     if (file) {
       const url = URL.createObjectURL(file);
       setReceiptUrl(url);
+      setFileName(file.name);
+      setFileType(file.type);
 
       // Preload placeholders to simulate future OCR extraction fields
       if (mode === 'Create' && !formData.merchant) {
@@ -168,6 +178,8 @@ const ExpenseForm = ({
         id: data?.id || `EXP-${Date.now()}`,
         status: 'Draft',
         receiptUrl,
+        fileName,
+        fileType,
         employeeName: data?.employeeName || 'John Employee',
       });
     }
@@ -184,6 +196,8 @@ const ExpenseForm = ({
         id: data?.id || `EXP-${Date.now()}`,
         status: 'Submitted',
         receiptUrl,
+        fileName,
+        fileType,
         employeeName: data?.employeeName || 'John Employee',
       });
     }
@@ -196,13 +210,20 @@ const ExpenseForm = ({
     }
   };
 
-  return (
+  const modalContent = (
     <>
-      {/* Drawer Container */}
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-6xl flex-col bg-slate-50 shadow-2xl border-l border-slate-200 animate-fade-in font-sans">
-        
-        {/* Drawer Header Area */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
+      {/* Backdrop Layer */}
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 transition-all duration-300"
+      />
+
+      {/* Floating Center Modal container (Permanently max-w-6xl) */}
+      <div 
+        className="fixed inset-x-4 top-[8vh] bottom-[8vh] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 z-[70] flex w-full max-w-6xl flex-col bg-white shadow-2xl rounded-2xl overflow-hidden font-sans border border-slate-200/80"
+      >
+        {/* Modal Header Area */}
+        <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 shrink-0">
           <div className="flex flex-col text-left">
             <div className="flex items-center gap-2.5">
               <span className="text-base font-bold text-slate-800 font-display">
@@ -211,129 +232,145 @@ const ExpenseForm = ({
               <StatusBadge status={mode} />
             </div>
             {mode !== 'Create' && (
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-3 mt-0.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-3 mt-0.5 font-sans">
                 Filed By: {data?.employeeName || 'John Employee'}
               </span>
             )}
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Drawer Main Body */}
+        {/* Modal Main Body */}
         <div className="flex flex-1 overflow-hidden">
           
-          {/* LEFT: Document Preview Section */}
-          <div className="hidden w-2/5 border-r border-slate-200 bg-slate-900 lg:block">
+          {/* LEFT: Document Preview Section (Fixed at 50% split width) */}
+          <div className="hidden border-r border-slate-200 bg-slate-900 relative transition-all duration-300 lg:block w-[50%]">
             <ReceiptSection
               receiptUrl={receiptUrl}
+              fileName={fileName}
+              fileType={fileType}
               isEditable={isEditable}
               onFileChange={handleFileChange}
             />
           </div>
 
-          {/* RIGHT: Form Fields Stepper Sections */}
-          <div className="flex-1 overflow-y-auto px-8 py-6">
+          {/* RIGHT: Form Fields Sections (Fixed at 50% split width) */}
+          <div className="flex flex-col flex-1 bg-slate-50 overflow-hidden w-[50%]">
             
-            {/* stepper timeline progress indicator */}
-            <div className="mb-6">
-              <Timeline status={mode} />
-            </div>
-
-            {/* Error panel for corrections */}
-            {mode === 'Returned' && data?.managerComments && (
-              <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 p-4 text-left">
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wide">
-                      Correction Notes (From Manager Review)
-                    </h5>
-                    <p className="mt-1 text-sm text-amber-700 leading-relaxed font-medium">
-                      "{data.managerComments}"
-                    </p>
-                  </div>
+            {/* Scrollable Form Content */}
+            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
+              
+              {/* Stepper progress indicator: Only shown when viewing an existing claim */}
+              {!isCreateLayout && (
+                <div className="mb-6">
+                  <Timeline status={mode} />
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Form Segment */}
-            <div className="space-y-6">
-              <ExpenseDetails
-                formData={formData}
-                isEditable={isEditable}
-                onChange={handleChange}
-                ocrConfidence={data?.ocrConfidence}
-                ocrOverallScore={data?.ocrOverallScore}
-                ocrTimestamp={data?.ocrTimestamp}
-                errors={errors}
-              />
-
-              <Comments
-                formData={formData}
-                isEditable={isEditable}
-                mode={mode}
-                userRole={userRole}
-                onChange={handleChange}
-                ocrOverallScore={data?.ocrOverallScore}
-              />
-
-              {/* Action dialogue prompt */}
-              {showReturnRemarks && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3 text-left">
-                  <div className="flex gap-2 text-amber-800 text-xs font-bold uppercase tracking-wide">
-                    <MessageSquare className="h-4.5 w-4.5" />
-                    <span>Provide Correction Notes</span>
-                  </div>
-                  <textarea
-                    rows="2"
-                    required
-                    value={returnRemarks}
-                    onChange={(e) => setReturnRemarks(e.target.value)}
-                    placeholder="Describe what correction is needed..."
-                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-amber-400 focus:outline-none"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowReturnRemarks(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="bg-amber-600 hover:bg-amber-700"
-                      disabled={!returnRemarks.trim()}
-                      onClick={() => handleActionClick('Returned', returnRemarks)}
-                    >
-                      Confirm Return
-                    </Button>
+              {/* Correction Notes / Comments from Manager */}
+              {mode === 'Returned' && data?.managerComments && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-left shadow-sm">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wide font-sans">
+                        Correction Notes (From Manager Review)
+                      </h5>
+                      <p className="mt-1 text-sm text-amber-700 leading-relaxed font-medium">
+                        "{data.managerComments}"
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Reusable Form Inputs */}
+              <div className="space-y-6">
+                <ExpenseDetails
+                  formData={formData}
+                  isEditable={isEditable}
+                  onChange={handleChange}
+                  ocrConfidence={data?.ocrConfidence}
+                  ocrOverallScore={data?.ocrOverallScore}
+                  ocrTimestamp={data?.ocrTimestamp}
+                  errors={errors}
+                />
+
+                {/* Manager / Finance Comments & Actions History */}
+                {!isCreateLayout && (
+                  <Comments
+                    formData={formData}
+                    isEditable={isEditable}
+                    mode={mode}
+                    userRole={userRole}
+                    onChange={handleChange}
+                    ocrOverallScore={data?.ocrOverallScore}
+                  />
+                )}
+
+                {/* Action dialogue prompt for Returned claims */}
+                {showReturnRemarks && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3 text-left shadow-sm">
+                    <div className="flex gap-2 text-amber-800 text-xs font-bold uppercase tracking-wide font-sans">
+                      <MessageSquare className="h-4.5 w-4.5" />
+                      <span>Provide Correction Notes</span>
+                    </div>
+                    <textarea
+                      rows="2"
+                      required
+                      value={returnRemarks}
+                      onChange={(e) => setReturnRemarks(e.target.value)}
+                      placeholder="Describe what correction is needed..."
+                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-amber-400 focus:outline-none"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setShowReturnRemarks(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="bg-amber-600 hover:bg-amber-700 font-semibold"
+                        disabled={!returnRemarks.trim()}
+                        onClick={() => handleActionClick('Returned', returnRemarks)}
+                      >
+                        Confirm Return
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Bottom Actions footer panel */}
+            <div className="shrink-0 bg-white border-t border-slate-200">
+              <ActionButtons
+                mode={mode}
+                userRole={userRole}
+                onClose={onClose}
+                onSaveDraft={handleSaveDraft}
+                onSubmitClaim={handleSubmitClaim}
+                onApprove={() => handleActionClick('Approved', formData.managerComments)}
+                onReturn={() => setShowReturnRemarks(true)}
+                onReject={() => handleActionClick('Rejected', userRole === 'Manager' ? formData.managerComments : formData.financeComments)}
+                onDisburse={() => handleActionClick('Reimbursed', formData.financeComments)}
+                processing={processing}
+                showReturnRemarksFlag={showReturnRemarks}
+              />
+            </div>
+
           </div>
         </div>
-
-        {/* Drawer Action Footer */}
-        <ActionButtons
-          mode={mode}
-          userRole={userRole}
-          onClose={onClose}
-          onSaveDraft={handleSaveDraft}
-          onSubmitClaim={handleSubmitClaim}
-          onApprove={() => handleActionClick('Approved', formData.managerComments)}
-          onReturn={() => setShowReturnRemarks(true)}
-          onReject={() => handleActionClick('Rejected', userRole === 'Manager' ? formData.managerComments : formData.financeComments)}
-          onDisburse={() => handleActionClick('Reimbursed', formData.financeComments)}
-          processing={processing}
-          showReturnRemarksFlag={showReturnRemarks}
-        />
       </div>
     </>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default ExpenseForm;
