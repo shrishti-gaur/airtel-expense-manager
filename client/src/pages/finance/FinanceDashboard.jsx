@@ -1,17 +1,34 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useUI } from '../../context/UIContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
 import ExpenseForm from '../../components/common/ExpenseForm';
 import StatusBadge from '../../components/common/StatusBadge';
 import { INITIAL_CLAIMS } from '../../constants/mockData';
-import { CreditCard, CheckSquare, Square, RefreshCcw, Check, ShieldCheck, Eye } from 'lucide-react';
+import {
+  CreditCard,
+  CheckSquare,
+  Square,
+  RefreshCcw,
+  Check,
+  ShieldCheck,
+  Eye,
+  ArrowLeft,
+  DollarSign,
+  Briefcase
+} from 'lucide-react';
 
 const FinanceDashboard = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedClaims, setSelectedClaims] = useState([]);
   const [processing, setProcessing] = useState(false);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { runWithLoading, addNotification } = useUI();
 
   // Drawer popup states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -83,28 +100,49 @@ const FinanceDashboard = () => {
 
     setClaims(updatedClaims);
     setErpSyncLogs(prev => [...newLogs, ...prev]);
+
+    // Send notifications for disbursements
+    claimIds.forEach(id => {
+      addNotification(
+        'Reimbursement Settled',
+        `Payment disbursed and synced to Oracle ERP for claim ${id}.`,
+        'success'
+      );
+    });
   };
 
   const executePayoutAction = async (claimId, action, comments = '') => {
-    setProcessing(true);
-    // Simulate latency
-    setTimeout(() => {
-      // Map action callback (Reimbursed represents payment disbursed)
+    const sequence = [
+      { message: 'Sending Request...', duration: 900 },
+      { message: 'Processing...', duration: 1100 },
+      { message: 'Almost Done...', duration: 500 }
+    ];
+
+    runWithLoading(sequence, () => {
       handleLocalDisbursement([claimId], action, comments);
-      setProcessing(false);
       setIsFormOpen(false);
-    }, 450);
+    });
   };
 
   const handleBulkDisbursement = async () => {
     if (selectedClaims.length === 0) return;
-    setProcessing(true);
 
-    setTimeout(() => {
+    const sequence = [
+      { message: 'Sending Request...', duration: 1000 },
+      { message: 'Processing...', duration: 1200 },
+      { message: 'Almost Done...', duration: 600 }
+    ];
+
+    runWithLoading(sequence, () => {
+      const claimCount = selectedClaims.length;
       handleLocalDisbursement(selectedClaims, 'Reimbursed', 'Bulk processed disbursement.');
       setSelectedClaims([]);
-      setProcessing(false);
-    }, 600);
+      addNotification(
+        'Bulk Disbursements Completed',
+        `Successfully settled and synced ${claimCount} claims to Oracle General Ledger.`,
+        'success'
+      );
+    });
   };
 
   const handleRowClick = (claim) => {
@@ -117,21 +155,219 @@ const FinanceDashboard = () => {
     return <LoadingSpinner fullPage />;
   }
 
+  // 1. RENDER AUDIT QUEUE VIEW ONLY
+  if (location.pathname === '/finance/audit') {
+    return (
+      <div className="space-y-6 animate-fade-in font-sans">
+        {/* Back Link Header */}
+        <div className="text-left">
+          <button
+            onClick={() => navigate('/finance')}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-red-600 transition-colors uppercase tracking-wider mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Desk
+          </button>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
+            Claims Audit Queue
+          </h1>
+          <p className="text-sm text-slate-500">
+            Inspect manager-approved claims for policy compliance and complete financial audit reviews.
+          </p>
+        </div>
+
+        {/* Audit Queue Table */}
+        <Card title="Claims Audit Verification Queue">
+          {pendingPayouts.length === 0 ? (
+            <div className="py-8 text-center text-slate-500">
+              <Check className="mx-auto h-12 w-12 text-emerald-500 mb-2" />
+              <p className="font-semibold">All payouts disbursed</p>
+              <p className="text-xs text-slate-400 mt-1">Pending payments queue is empty.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <th className="py-3 px-4">Claim ID</th>
+                    <th className="py-3 px-4">Employee</th>
+                    <th className="py-3 px-4">Category Details</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                  {pendingPayouts.map((claim) => (
+                    <tr
+                      key={claim.id}
+                      onClick={() => handleRowClick(claim)}
+                      className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                    >
+                      <td className="py-4 px-4 font-semibold text-slate-500 font-mono">{claim.id}</td>
+                      <td className="py-4 px-4">
+                        <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
+                          {claim.employee || claim.employeeName}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-left">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                          {claim.category}
+                          {claim.ocrOverallScore < 80 && (
+                            <span className="inline-flex text-[9px] font-bold text-amber-600 bg-amber-50 px-1 rounded border border-amber-200">
+                              Low OCR
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{claim.description}</p>
+                      </td>
+                      <td className="py-4 px-4 text-slate-500 font-sans">{claim.date}</td>
+                      <td className="py-4 px-4">
+                        <StatusBadge status={claim.status} />
+                      </td>
+                      <td className="py-4 px-4 text-right font-extrabold text-slate-900">
+                        ₹{claim.amount.toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="hover:border-slate-400 hover:bg-slate-50 text-slate-700 flex items-center gap-1"
+                            onClick={() => handleRowClick(claim)}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Audit
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        {/* Drawer popup */}
+        <ExpenseForm
+          isOpen={isFormOpen}
+          onClose={() => setIsFormOpen(false)}
+          mode={formMode}
+          data={activeClaimData}
+          onAction={executePayoutAction}
+          userRole="Finance"
+        />
+      </div>
+    );
+  }
+
+  // 2. RENDER BULK DISBURSEMENTS CONTROLLER VIEW
+  if (location.pathname === '/finance/disbursements') {
+    const totalPendingAmount = pendingPayouts.reduce((sum, claim) => sum + claim.amount, 0);
+
+    return (
+      <div className="space-y-6 animate-fade-in font-sans">
+        {/* Back Link Header */}
+        <div className="text-left">
+          <button
+            onClick={() => navigate('/finance')}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-red-600 transition-colors uppercase tracking-wider mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Desk
+          </button>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
+            Bulk Payout disbursements
+          </h1>
+          <p className="text-sm text-slate-500">
+            Disburse pending payouts in bulk to trigger ERP General Ledger sync vouchers.
+          </p>
+        </div>
+
+        {/* Payout Summary Cards */}
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="p-6 border-t-4 border-t-emerald-500">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Pending Disbursements</span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold text-slate-800 font-display">₹{totalPendingAmount.toLocaleString('en-IN')}</span>
+              <span className="text-xs bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">Total Queue</span>
+            </div>
+          </Card>
+          
+          <Card className="p-6 border-t-4 border-t-blue-500">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Claim Vouchers Count</span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold text-slate-800 font-display">{pendingPayouts.length}</span>
+              <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">Unsettled</span>
+            </div>
+          </Card>
+
+          <Card className="p-6 border-t-4 border-t-red-500">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Bulk Processor Status</span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-lg font-bold text-red-600 uppercase tracking-wide">Ready for Batch</span>
+            </div>
+          </Card>
+        </div>
+
+        {/* Main Bulk Actions Card */}
+        <Card title="Batch disbursement execution">
+          <div className="p-6 text-center space-y-4 max-w-xl mx-auto">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600 mx-auto">
+              <CreditCard className="h-8 w-8" />
+            </div>
+            <h3 className="text-base font-bold text-slate-800">
+              Run ERP Batch disbursement
+            </h3>
+            <p className="text-xs text-slate-500">
+              This will disburse all {pendingPayouts.length} approved expense claims totaling ₹{totalPendingAmount.toLocaleString('en-IN')}. Oracle GL vouchers will be generated and logged dynamically.
+            </p>
+            <div className="pt-4">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleBulkDisbursement}
+                disabled={pendingPayouts.length === 0}
+                className="w-full sm:w-auto shadow-sm"
+              >
+                Disburse All Approved Claims (₹{totalPendingAmount.toLocaleString('en-IN')})
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // 3. DEFAULT DASHBOARD VIEW
   return (
     <div className="space-y-8 animate-fade-in font-sans">
       {/* Welcome Header */}
-      <div className="text-left">
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
-          Finance Controller Desk
-        </h1>
-        <p className="text-sm text-slate-500">
-          Verify general ledger items, inspect compliance alerts, and disburse payouts synced to Oracle GL.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-left">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
+            Finance Controller Desk
+          </h1>
+          <p className="text-sm text-slate-500">
+            Verify general ledger items, inspect compliance alerts, and disburse payouts synced to Oracle GL.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate('/finance/disbursements')} className="flex items-center gap-1.5 shadow-sm">
+            <CreditCard className="h-4 w-4" />
+            Disbursement Desk
+          </Button>
+          <Button variant="primary" onClick={() => navigate('/finance/audit')} className="flex items-center gap-1.5 shadow-sm">
+            <ShieldCheck className="h-4 w-4" />
+            Audit Claims ({pendingPayouts.length})
+          </Button>
+        </div>
       </div>
 
       {/* 5-Card Metrics Summaries Grid */}
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-5">
-        
         {/* Card 1: Drafts */}
         <Card className="border-t-4 border-t-slate-400 p-4 hover:scale-102 transition-transform">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Drafts</p>
@@ -180,15 +416,14 @@ const FinanceDashboard = () => {
 
       {/* Bulk Disbursements Actions */}
       <Card
-        title="Pending Reimbursement Disbursements"
+        title="Recent Approved Claims Queue"
         headerAction={
           selectedClaims.length > 0 && (
             <Button
               variant="primary"
               size="sm"
-              loading={processing}
               onClick={handleBulkDisbursement}
-              className="flex items-center gap-1.5 shadow-sm"
+              className="flex items-center gap-1.5 shadow-sm animate-fade-in"
             >
               <CreditCard className="h-4 w-4" />
               Disburse {selectedClaims.length} Claims
@@ -210,7 +445,7 @@ const FinanceDashboard = () => {
                   <th className="py-3 px-4 w-12" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={toggleSelectAll}
-                      className="text-slate-500 hover:text-red-600"
+                      className="text-slate-500 hover:text-red-600 cursor-pointer"
                     >
                       {selectedClaims.length === pendingPayouts.length ? (
                         <CheckSquare className="h-5 w-5 text-red-600" />
@@ -229,7 +464,7 @@ const FinanceDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                {pendingPayouts.map((claim) => (
+                {pendingPayouts.slice(0, 3).map((claim) => (
                   <tr
                     key={claim.id}
                     onClick={() => handleRowClick(claim)}
@@ -238,7 +473,7 @@ const FinanceDashboard = () => {
                     <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => toggleSelectClaim(claim.id)}
-                        className="text-slate-500 hover:text-red-600 animate-fade-in"
+                        className="text-slate-500 hover:text-red-600 animate-fade-in cursor-pointer"
                       >
                         {selectedClaims.includes(claim.id) ? (
                           <CheckSquare className="h-5 w-5 text-red-600" />
@@ -250,7 +485,7 @@ const FinanceDashboard = () => {
                     <td className="py-4 px-4 font-semibold text-slate-500 font-mono">{claim.id}</td>
                     <td className="py-4 px-4">
                       <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
-                        {claim.employee}
+                        {claim.employee || claim.employeeName}
                       </div>
                     </td>
                     <td className="py-4 px-4 text-left">

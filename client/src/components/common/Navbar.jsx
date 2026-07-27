@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIContext';
 import { Bell, LogOut, User, Activity, Menu } from 'lucide-react';
 
 const Navbar = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
+  const { unreadCount, notificationsOpen, setNotificationsOpen } = useUI();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
@@ -40,11 +42,16 @@ const Navbar = ({ onMenuToggle }) => {
       <div className="flex items-center gap-4">
         {/* Mock Notification Bell */}
         <button 
+          onClick={() => setNotificationsOpen(!notificationsOpen)}
           className="relative rounded-full p-2 text-slate-500 hover:bg-slate-100 transition-colors"
           aria-label="Notifications Alerts"
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-600 ring-2 ring-white" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-600 text-[9px] font-extrabold text-white ring-2 ring-white animate-pulse">
+              {unreadCount}
+            </span>
+          )}
         </button>
 
         {/* User profile dropdown selector */}

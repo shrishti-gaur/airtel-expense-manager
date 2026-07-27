@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../common/Sidebar';
 import Navbar from '../common/Navbar';
+import NotificationPanel from '../common/NotificationPanel';
+import GlobalLoadingOverlay from '../common/GlobalLoadingOverlay';
 
 const PageLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -23,6 +25,10 @@ const PageLayout = () => {
           </div>
         </main>
       </div>
+
+      {/* Global Panels */}
+      <NotificationPanel />
+      <GlobalLoadingOverlay />
     </div>
   );
 };
