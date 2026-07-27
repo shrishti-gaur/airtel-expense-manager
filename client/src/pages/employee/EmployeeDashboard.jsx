@@ -151,6 +151,9 @@ const EmployeeDashboard = () => {
         category: 'Internet & Communications',
         description: `AI Extracted billing details from uploaded receipt document: "${file.name}".`,
         receiptUrl: URL.createObjectURL(file),
+        fileName: file.name,
+        fileType: file.type || (file.name.toLowerCase().endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/png'),
+        fileSize: file.size,
         ocrOverallScore: 94,
         ocrTimestamp: new Date().toISOString(),
         ocrConfidence: { merchant: 95, invoiceNumber: 88, amount: 98, tax: 85, date: 94, category: 90 },
@@ -286,7 +289,7 @@ const EmployeeDashboard = () => {
                 Drag and drop your receipt here
               </h3>
               <p className="text-xs text-slate-500 mt-1 mb-6">
-                Supports JPEG, PNG, and PDF files up to 10MB
+                Supports JPEG, PNG, PDF, and DOCX files up to 10MB
               </p>
 
               {/* Upload Action buttons */}
@@ -296,7 +299,7 @@ const EmployeeDashboard = () => {
                   Upload Receipt File
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept="image/*,application/pdf,.docx,.doc"
                     className="hidden"
                     onChange={handleFileChange}
                   />

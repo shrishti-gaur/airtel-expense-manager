@@ -46,6 +46,8 @@ const ExpenseForm = ({
   const [receiptUrl, setReceiptUrl] = useState(null);
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState('');
+  const [fileSize, setFileSize] = useState(null);
+  const [uploadDate, setUploadDate] = useState(null);
   const [errors, setErrors] = useState({});
   const [processing, setProcessing] = useState(false);
 
@@ -80,8 +82,10 @@ const ExpenseForm = ({
         financeComments: data.financeComments || '',
       });
       setReceiptUrl(data.receiptUrl || null);
-      setFileName(data.fileName || (data.receiptUrl ? 'receipt_document' : ''));
-      setFileType(data.fileType || '');
+      setFileName(data.fileName || (data.receiptUrl ? 'receipt_document.png' : ''));
+      setFileType(data.fileType || (data.receiptUrl ? 'image/png' : ''));
+      setFileSize(data.fileSize || (data.receiptUrl ? 154200 : null));
+      setUploadDate(data.uploadDate || (data.receiptUrl ? new Date().toISOString() : null));
     } else {
       // Setup empty form defaults for Create
       setFormData({
@@ -105,6 +109,8 @@ const ExpenseForm = ({
       setReceiptUrl(null);
       setFileName('');
       setFileType('');
+      setFileSize(null);
+      setUploadDate(null);
     }
 
     setErrors({});
@@ -126,10 +132,30 @@ const ExpenseForm = ({
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const allowedMimeTypes = [
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      const allowedExtensions = ['.png', '.jpg', '.jpeg', '.pdf', '.docx'];
+      
+      const fileExt = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      const isMimeValid = file.type && allowedMimeTypes.includes(file.type);
+      const isExtValid = allowedExtensions.includes(fileExt);
+
+      if (!isMimeValid && !isExtValid) {
+        alert('Unsupported file format. Please upload PNG, JPG, JPEG, PDF, or DOCX receipt files.');
+        return;
+      }
+
       const url = URL.createObjectURL(file);
       setReceiptUrl(url);
       setFileName(file.name);
-      setFileType(file.type);
+      setFileType(file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'));
+      setFileSize(file.size);
+      setUploadDate(new Date().toISOString());
 
       // Preload placeholders to simulate future OCR extraction fields
       if (mode === 'Create' && !formData.merchant) {
@@ -180,6 +206,8 @@ const ExpenseForm = ({
         receiptUrl,
         fileName,
         fileType,
+        fileSize,
+        uploadDate,
         employeeName: data?.employeeName || 'John Employee',
       });
     }
@@ -198,6 +226,8 @@ const ExpenseForm = ({
         receiptUrl,
         fileName,
         fileType,
+        fileSize,
+        uploadDate,
         employeeName: data?.employeeName || 'John Employee',
       });
     }
@@ -254,6 +284,8 @@ const ExpenseForm = ({
               receiptUrl={receiptUrl}
               fileName={fileName}
               fileType={fileType}
+              fileSize={fileSize}
+              uploadDate={uploadDate}
               isEditable={isEditable}
               onFileChange={handleFileChange}
             />
