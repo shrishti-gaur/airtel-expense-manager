@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
 import { Bell, LogOut, User, Activity, Menu } from 'lucide-react';
@@ -7,6 +8,7 @@ const Navbar = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
   const { unreadCount, notificationsOpen, setNotificationsOpen } = useUI();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/80 px-6 backdrop-blur-md">
@@ -84,9 +86,9 @@ const Navbar = ({ onMenuToggle }) => {
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
-                    // Navigation placeholder
+                    navigate('/settings');
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   <User className="h-4 w-4" />
                   My Settings

@@ -33,10 +33,8 @@ api.interceptors.response.use(
       console.warn('[API Interceptor] Session unauthorized. Clearing cache.');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
-      // If we are not on login page, reload to trigger route redirect
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
+      // Dispatch custom event to notify AuthContext to log out gracefully without reload
+      window.dispatchEvent(new Event('auth_session_expired'));
     }
     return Promise.reject(error.response ? error.response.data : error);
   }

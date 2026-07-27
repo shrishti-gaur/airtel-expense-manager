@@ -27,6 +27,7 @@ const ExpenseForm = ({
     merchant: '',
     invoiceNumber: '',
     date: '',
+    expenseDate: '',
     amount: '',
     currency: 'INR',
     tax: '',
@@ -60,6 +61,7 @@ const ExpenseForm = ({
         merchant: data.merchant || '',
         invoiceNumber: data.invoiceNumber || '',
         date: data.date ? new Date(data.date).toISOString().split('T')[0] : '',
+        expenseDate: data.expenseDate ? new Date(data.expenseDate).toISOString().split('T')[0] : (data.date ? new Date(data.date).toISOString().split('T')[0] : ''),
         amount: data.amount || '',
         currency: data.currency || 'INR',
         tax: data.tax || '',
@@ -80,6 +82,7 @@ const ExpenseForm = ({
         merchant: '',
         invoiceNumber: '',
         date: new Date().toISOString().split('T')[0],
+        expenseDate: new Date().toISOString().split('T')[0],
         amount: '',
         currency: 'INR',
         tax: '',
@@ -136,8 +139,9 @@ const ExpenseForm = ({
   // Perform Form Validations
   const validateForm = () => {
     const tempErrors = {};
-    if (!formData.merchant.trim()) tempErrors.merchant = 'Merchant name is required';
+    if (!formData.merchant?.trim()) tempErrors.merchant = 'Merchant name is required';
     if (!formData.date) tempErrors.date = 'Invoice date is required';
+    if (!formData.expenseDate) tempErrors.expenseDate = 'Expense date is required';
     if (!formData.category) tempErrors.category = 'Category selection is required';
     
     const amt = Number(formData.amount);
@@ -147,8 +151,8 @@ const ExpenseForm = ({
       tempErrors.amount = 'Claim amount must be greater than zero';
     }
 
-    if (!formData.description.trim()) {
-      tempErrors.description = 'Justification justification notes are required';
+    if (!formData.description?.trim()) {
+      tempErrors.description = 'Business Purpose justification is required';
     }
 
     setErrors(tempErrors);
@@ -161,10 +165,10 @@ const ExpenseForm = ({
     if (onSubmit) {
       onSubmit({
         ...formData,
-        id: data.id || `EXP-${Date.now()}`,
+        id: data?.id || `EXP-${Date.now()}`,
         status: 'Draft',
         receiptUrl,
-        employeeName: data.employeeName || 'John Employee',
+        employeeName: data?.employeeName || 'John Employee',
       });
     }
   };
@@ -172,27 +176,22 @@ const ExpenseForm = ({
   // Handle Full Submission
   const handleSubmitClaim = (e) => {
     e.preventDefault();
-    if (!receiptUrl) {
-      alert('Please upload a receipt document/image to submit.');
-      return;
-    }
-
     if (!validateForm()) return;
 
     if (onSubmit) {
       onSubmit({
         ...formData,
-        id: data.id || `EXP-${Date.now()}`,
+        id: data?.id || `EXP-${Date.now()}`,
         status: 'Submitted',
         receiptUrl,
-        employeeName: data.employeeName || 'John Employee',
+        employeeName: data?.employeeName || 'John Employee',
       });
     }
   };
 
   // Handle audit adjustments
   const handleActionClick = (action, remarks = '') => {
-    if (onAction) {
+    if (onAction && data?.id) {
       onAction(data.id, action, remarks);
     }
   };
@@ -207,13 +206,13 @@ const ExpenseForm = ({
           <div className="flex flex-col text-left">
             <div className="flex items-center gap-2.5">
               <span className="text-base font-bold text-slate-800 font-display">
-                {mode === 'Create' ? 'Create Expense Claim' : `Claim ID: ${data.id || 'Draft'}`}
+                {mode === 'Create' ? 'Create Expense Claim' : `Claim ID: ${data?.id || 'Draft'}`}
               </span>
               <StatusBadge status={mode} />
             </div>
             {mode !== 'Create' && (
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-3 mt-0.5">
-                Filed By: {data.employeeName || 'John Employee'}
+                Filed By: {data?.employeeName || 'John Employee'}
               </span>
             )}
           </div>
@@ -246,7 +245,7 @@ const ExpenseForm = ({
             </div>
 
             {/* Error panel for corrections */}
-            {mode === 'Returned' && data.managerComments && (
+            {mode === 'Returned' && data?.managerComments && (
               <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 p-4 text-left">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
@@ -268,9 +267,9 @@ const ExpenseForm = ({
                 formData={formData}
                 isEditable={isEditable}
                 onChange={handleChange}
-                ocrConfidence={data.ocrConfidence}
-                ocrOverallScore={data.ocrOverallScore}
-                ocrTimestamp={data.ocrTimestamp}
+                ocrConfidence={data?.ocrConfidence}
+                ocrOverallScore={data?.ocrOverallScore}
+                ocrTimestamp={data?.ocrTimestamp}
                 errors={errors}
               />
 
@@ -280,7 +279,7 @@ const ExpenseForm = ({
                 mode={mode}
                 userRole={userRole}
                 onChange={handleChange}
-                ocrOverallScore={data.ocrOverallScore}
+                ocrOverallScore={data?.ocrOverallScore}
               />
 
               {/* Action dialogue prompt */}
