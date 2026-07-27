@@ -8,7 +8,8 @@ export const INITIAL_CLAIMS = [
     title: 'Airtel Broadband Office Link',
     status: 'Submitted', // Submitted/Pending Approval
     amount: 1499,
-    date: '2026-07-20',
+    invoiceDate: '2026-07-20',
+    submissionDate: '2026-07-20T12:00:00Z',
     merchant: 'Airtel Broadband Services',
     invoiceNumber: 'INV-AIR-8821',
     currency: 'INR',
@@ -33,7 +34,8 @@ export const INITIAL_CLAIMS = [
     title: 'Client Onsite Cab Fare',
     status: 'Reimbursed', // Reimbursed
     amount: 700,
-    date: '2026-07-18',
+    invoiceDate: '2026-07-18',
+    submissionDate: '2026-07-18T16:00:00Z',
     merchant: 'Ola Cabs Fleet',
     invoiceNumber: 'INV-OLA-9923',
     currency: 'INR',
@@ -58,7 +60,8 @@ export const INITIAL_CLAIMS = [
     title: 'Partner Engagement Dinner',
     status: 'Returned', // Returned Claim
     amount: 2500,
-    date: '2026-07-15',
+    invoiceDate: '2026-07-15',
+    submissionDate: '2026-07-15T21:30:00Z',
     merchant: 'Taj Buffet Lounge',
     invoiceNumber: 'INV-TAJ-7721',
     currency: 'INR',
@@ -83,7 +86,8 @@ export const INITIAL_CLAIMS = [
     title: 'IDE Tool License Annual',
     status: 'Submitted', // Submitted/Pending Approval
     amount: 3701,
-    date: '2026-07-19',
+    invoiceDate: '2026-07-19',
+    submissionDate: '2026-07-19T10:15:00Z',
     merchant: 'JetBrains s.r.o.',
     invoiceNumber: 'INV-JB-55612',
     currency: 'INR',
@@ -108,7 +112,8 @@ export const INITIAL_CLAIMS = [
     title: 'Testing Mobile handset',
     status: 'Approved', // Approved (Awaiting payment)
     amount: 15400,
-    date: '2026-07-15',
+    invoiceDate: '2026-07-15',
+    submissionDate: '2026-07-15T11:00:00Z',
     merchant: 'Airtel Corporate Store',
     invoiceNumber: 'INV-ART-4412',
     currency: 'INR',
@@ -133,7 +138,8 @@ export const INITIAL_CLAIMS = [
     title: 'Cloud Server Sandbox hosting',
     status: 'Draft', // Draft
     amount: 1000,
-    date: '2026-07-10',
+    invoiceDate: '2026-07-10',
+    submissionDate: '2026-07-10T10:00:00Z',
     merchant: 'Amazon Web Services',
     invoiceNumber: 'INV-AWS-8812',
     currency: 'INR',

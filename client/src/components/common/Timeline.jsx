@@ -7,8 +7,8 @@ const Timeline = ({ status = 'Draft' }) => {
     { key: 'Draft', label: 'Draft' },
     { key: 'Submitted', label: 'Submitted' },
     { key: 'ManagerReview', label: 'Manager Review' },
-    { key: 'FinanceReview', label: 'Finance Review' },
-    { key: 'Settled', label: 'Settled' },
+    { key: 'FinanceReview', label: 'Pending Finance Review' },
+    { key: 'Settled', label: 'Approved & Synced to Oracle' },
   ];
 
   // Map status strings to indices in the timeline
@@ -65,9 +65,9 @@ const Timeline = ({ status = 'Draft' }) => {
           }
 
           let labelText = step.label;
-          if (isActive && isReturned) labelText = 'Returned';
+          if (isActive && isReturned) labelText = 'Returned for Correction';
           if (isActive && isRejected) labelText = 'Rejected';
-          if (step.key === 'Settled' && status === 'Reimbursed') labelText = 'Reimbursed';
+          if (step.key === 'Settled' && status === 'Reimbursed') labelText = 'Approved & Synced to Oracle';
 
           return (
             <div key={step.key} className="relative z-10 flex flex-col items-center">

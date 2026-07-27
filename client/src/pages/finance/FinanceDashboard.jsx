@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -28,12 +28,62 @@ const FinanceDashboard = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const claimId = searchParams.get('claimId');
   const { runWithLoading, addNotification } = useUI();
 
   // Drawer popup states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeClaimData, setActiveClaimData] = useState(null);
   const [formMode, setFormMode] = useState('Approved');
+
+  const formatDateOnly = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
+  const formatDateTime = (isoString) => {
+    if (!isoString) return 'N/A';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      return d.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
+  // Listen to path changes and search parameters to open/close drawer
+  useEffect(() => {
+    if (claimId) {
+      const claim = claims.find((c) => c.id === claimId);
+      if (claim) {
+        setActiveClaimData(claim);
+        setFormMode(claim.status);
+        setIsFormOpen(true);
+      }
+    } else {
+      setIsFormOpen(false);
+      setActiveClaimData(null);
+    }
+  }, [claimId, claims, location.pathname]);
 
   const [erpSyncLogs, setErpSyncLogs] = useState([
     { timestamp: '2026-07-24 12:40', voucher: 'ORACLE-EXP-1721805624', claimId: 'EXP-2026-102' },
@@ -121,6 +171,10 @@ const FinanceDashboard = () => {
     runWithLoading(sequence, () => {
       handleLocalDisbursement([claimId], action, comments);
       setIsFormOpen(false);
+      if (searchParams.get('claimId') === claimId) {
+        searchParams.delete('claimId');
+        setSearchParams(searchParams);
+      }
     });
   };
 
@@ -146,9 +200,7 @@ const FinanceDashboard = () => {
   };
 
   const handleRowClick = (claim) => {
-    setActiveClaimData(claim);
-    setFormMode(claim.status);
-    setIsFormOpen(true);
+    setSearchParams({ claimId: claim.id });
   };
 
   if (loading) {
@@ -192,7 +244,8 @@ const FinanceDashboard = () => {
                     <th className="py-3 px-4">Claim ID</th>
                     <th className="py-3 px-4">Employee</th>
                     <th className="py-3 px-4">Category Details</th>
-                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Invoice Date</th>
+                    <th className="py-3 px-4">Submission Date & Time</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4 text-right">Amount</th>
                     <th className="py-3 px-4 text-right">Actions</th>
@@ -222,7 +275,8 @@ const FinanceDashboard = () => {
                         </div>
                         <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{claim.description}</p>
                       </td>
-                      <td className="py-4 px-4 text-slate-500 font-sans">{claim.date}</td>
+                      <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
+                      <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
                       <td className="py-4 px-4">
                         <StatusBadge status={claim.status} />
                       </td>
@@ -388,28 +442,28 @@ const FinanceDashboard = () => {
 
         {/* Card 3: Approved */}
         <Card className="border-t-4 border-t-emerald-500 p-4 hover:scale-102 transition-transform">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approved Payouts</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending Finance Review</p>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-slate-800 font-display text-emerald-600">{metrics.Approved}</span>
-            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold font-sans">Awaiting Pay</span>
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold font-sans">Awaiting Audit</span>
           </div>
         </Card>
 
         {/* Card 4: Returned */}
         <Card className="border-t-4 border-t-amber-500 p-4 hover:scale-102 transition-transform">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Returned Drafts</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Returned for Correction</p>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-slate-800 font-display text-amber-600">{metrics.Returned}</span>
-            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold font-sans">Rejected</span>
+            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold font-sans">Returned</span>
           </div>
         </Card>
 
         {/* Card 5: Reimbursed */}
         <Card className="border-t-4 border-t-green-600 p-4 hover:scale-102 transition-transform">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Settled Ledger</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approved & Synced to Oracle</p>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-slate-800 font-display text-emerald-700">{metrics.Reimbursed}</span>
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold font-sans">Reimbursed</span>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold font-sans">Synced</span>
           </div>
         </Card>
       </div>
@@ -499,7 +553,8 @@ const FinanceDashboard = () => {
                       </div>
                       <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{claim.description}</p>
                     </td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{claim.date}</td>
+                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
+                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
                     <td className="py-4 px-4">
                       <StatusBadge status={claim.status} />
                     </td>
@@ -553,7 +608,14 @@ const FinanceDashboard = () => {
       {/* Reusable ExpenseForm Drawer Popup (Finance audit context) */}
       <ExpenseForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          if (claimId) {
+            searchParams.delete('claimId');
+            setSearchParams(searchParams);
+          } else {
+            setIsFormOpen(false);
+          }
+        }}
         mode={formMode}
         data={activeClaimData}
         onAction={executePayoutAction}

@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
@@ -18,6 +18,13 @@ export const AuthProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(false);
 
+  const logout = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    setUser(null);
+    navigate('/login');
+  }, [navigate]);
+
   // Listen to session expiry events to trigger react-router redirection
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -27,7 +34,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       window.removeEventListener('auth_session_expired', handleSessionExpired);
     };
-  }, [navigate]);
+  }, [logout]);
 
   const login = async (email, password) => {
     setLoading(true);
@@ -48,13 +55,6 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
-    setUser(null);
-    navigate('/login');
   };
 
   // Simulated Login Helper for direct UI testing and review

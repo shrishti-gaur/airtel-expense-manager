@@ -67,25 +67,18 @@ const ActionButtons = ({
             Return to Employee
           </Button>
           <Button
-            variant="danger"
-            disabled={processing}
-            onClick={onReject}
-          >
-            Reject Claim
-          </Button>
-          <Button
             variant="primary"
             disabled={processing}
             className="bg-emerald-600 hover:bg-emerald-700"
             onClick={onApprove}
           >
-            Approve & Sync
+            Approve & Forward
           </Button>
         </>
       )}
 
       {/* 3. Approved / Awaiting Finance Disbursement */}
-      {(mode === 'Approved' || (mode === 'Submitted' && userRole === 'Finance')) && (
+      {userRole === 'Finance' && (mode === 'Approved' || mode === 'Submitted') && (
         <>
           <Button variant="outline" onClick={onClose} disabled={processing}>
             Cancel
@@ -109,8 +102,10 @@ const ActionButtons = ({
         </>
       )}
 
-      {/* 4. Closed View-Only States (Reimbursed / Rejected / Submitted by Employee) */}
-      {!isEditable && mode !== 'Submitted' && mode !== 'Approved' && (
+      {/* 4. Closed View-Only States (Reimbursed / Rejected / Submitted by Employee / Approved by Employee) */}
+      {(!isEditable && 
+        !(mode === 'Submitted' && (userRole === 'Manager' || userRole === 'Finance')) && 
+        !(mode === 'Approved' && userRole === 'Finance')) && (
         <Button variant="secondary" onClick={onClose}>
           Close Viewer
         </Button>

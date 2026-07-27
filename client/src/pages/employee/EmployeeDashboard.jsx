@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -25,6 +25,8 @@ const EmployeeDashboard = () => {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const claimId = searchParams.get('claimId');
   const { runWithLoading, addNotification } = useUI();
 
   // Drawer popup states
@@ -35,6 +37,39 @@ const EmployeeDashboard = () => {
   // Drag and drop states for OCR
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+
+  const formatDateOnly = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
+  const formatDateTime = (isoString) => {
+    if (!isoString) return 'N/A';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      return d.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch (e) {
+      return 'N/A';
+    }
+  };
 
   useEffect(() => {
     // Simulate loading
@@ -48,19 +83,25 @@ const EmployeeDashboard = () => {
     }, 400);
   }, []);
 
-  // Listen to path changes to open/close drawer
+  // Listen to path changes and search parameters to open/close drawer
   useEffect(() => {
-    if (location.pathname === '/employee/submit') {
+    if (claimId) {
+      const claim = claims.find((c) => c.id === claimId);
+      if (claim) {
+        setActiveClaimData(claim);
+        setFormMode(claim.status);
+        setIsFormOpen(true);
+      }
+    } else if (location.pathname === '/employee/submit') {
       if (!isFormOpen) {
         setFormMode('Create');
         setIsFormOpen(true);
       }
-    } else if (location.pathname === '/employee/scan') {
+    } else {
       setIsFormOpen(false);
-    } else if (location.pathname === '/employee') {
-      setIsFormOpen(false);
+      setActiveClaimData(null);
     }
-  }, [location.pathname]);
+  }, [location.pathname, claimId, claims]);
 
   // Compute metrics totals
   const getMetrics = () => {
@@ -78,16 +119,16 @@ const EmployeeDashboard = () => {
   const metrics = getMetrics();
 
   const handleRowClick = (claim) => {
-    setActiveClaimData(claim);
-    setFormMode(claim.status); // Set form mode directly to claim status
-    setIsFormOpen(true);
+    setSearchParams({ claimId: claim.id });
   };
 
   const handleFormClose = () => {
     setIsFormOpen(false);
     setActiveClaimData(null);
-    // Navigate back to where they were, or dashboard
-    if (location.pathname === '/employee/submit') {
+    if (claimId) {
+      searchParams.delete('claimId');
+      setSearchParams(searchParams);
+    } else if (location.pathname === '/employee/submit') {
       navigate('/employee');
     }
   };
@@ -145,7 +186,8 @@ const EmployeeDashboard = () => {
           ? 'Airtel Broadband Center'
           : 'Corporate Travel Services',
         invoiceNumber: `INV-OCR-${Math.floor(Math.random() * 90000) + 10000}`,
-        date: new Date().toISOString().split('T')[0],
+        invoiceDate: new Date().toISOString().split('T')[0],
+        submissionDate: new Date().toISOString(),
         amount: 1499,
         tax: 228.66,
         category: 'Internet & Communications',
@@ -185,7 +227,8 @@ const EmployeeDashboard = () => {
       const mockClaim = {
         merchant: 'Simulated Airtel Broadband Center',
         invoiceNumber: 'INV-OCR-2026',
-        date: new Date().toISOString().split('T')[0],
+        invoiceDate: new Date().toISOString().split('T')[0],
+        submissionDate: new Date().toISOString(),
         amount: 1499,
         tax: 228.66,
         category: 'Internet & Communications',
@@ -357,7 +400,8 @@ const EmployeeDashboard = () => {
                   <th className="py-3 px-4">Claim ID</th>
                   <th className="py-3 px-4">Justification Title</th>
                   <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Invoice Date</th>
+                  <th className="py-3 px-4">Submission Date & Time</th>
                   <th className="py-3 px-4">Amount</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -384,7 +428,8 @@ const EmployeeDashboard = () => {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-slate-600 font-semibold">{claim.category}</td>
-                      <td className="py-4 px-4 text-slate-500 font-sans">{claim.date}</td>
+                      <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
+                      <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
                       <td className="py-4 px-4 font-extrabold text-slate-800">
                         ₹{claim.amount.toLocaleString('en-IN')}
                       </td>
@@ -484,28 +529,28 @@ const EmployeeDashboard = () => {
 
         {/* Card 3: Approved */}
         <Card className="border-t-4 border-t-emerald-500 p-4 hover:scale-102 transition-transform">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approved Payouts</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending Finance Review</p>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-slate-800 font-display">{metrics.Approved}</span>
-            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">Verified</span>
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold font-sans">Awaiting Audit</span>
           </div>
         </Card>
 
         {/* Card 4: Returned */}
         <Card className="border-t-4 border-t-amber-500 p-4 hover:scale-102 transition-transform">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Returned Corrections</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Returned for Correction</p>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-slate-800 font-display text-amber-600">{metrics.Returned}</span>
-            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">Action Req.</span>
+            <span className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold font-sans">Action Req.</span>
           </div>
         </Card>
 
         {/* Card 5: Reimbursed */}
         <Card className="border-t-4 border-t-green-600 p-4 hover:scale-102 transition-transform">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reimbursed</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approved & Synced to Oracle</p>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-3xl font-extrabold text-slate-800 font-display text-emerald-700">{metrics.Reimbursed}</span>
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Settled</span>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold font-sans">Synced</span>
           </div>
         </Card>
       </div>
@@ -532,7 +577,8 @@ const EmployeeDashboard = () => {
                 <th className="py-3 px-4">Claim ID</th>
                 <th className="py-3 px-4">Justification Title</th>
                 <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Date</th>
+                <th className="py-3 px-4">Invoice Date</th>
+                <th className="py-3 px-4">Submission Date & Time</th>
                 <th className="py-3 px-4">Amount</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
@@ -559,7 +605,8 @@ const EmployeeDashboard = () => {
                       </span>
                     </td>
                     <td className="py-4 px-4 text-slate-600 font-semibold">{claim.category}</td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{claim.date}</td>
+                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
+                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
                     <td className="py-4 px-4 font-extrabold text-slate-800">
                       ₹{claim.amount.toLocaleString('en-IN')}
                     </td>

@@ -14,10 +14,19 @@ const StatusBadge = ({ status }) => {
     Rejected: 'bg-rose-50 text-rose-700 border-rose-200',
   };
 
+  const labels = {
+    Draft: 'Draft',
+    Submitted: 'Submitted',
+    Approved: 'Pending Finance Review',
+    Returned: 'Returned for Correction',
+    Reimbursed: 'Approved & Synced to Oracle',
+    Rejected: 'Rejected',
+  };
+
   const icons = {
     Draft: FileText,
     Submitted: Clock,
-    Approved: CheckCircle,
+    Approved: Clock,
     Returned: AlertTriangle,
     Reimbursed: CheckCircle,
     Rejected: XCircle,
@@ -26,11 +35,12 @@ const StatusBadge = ({ status }) => {
   const cleanStatus = status || 'Draft';
   const Icon = icons[cleanStatus] || Clock;
   const styleClass = styles[cleanStatus] || styles.Draft;
+  const label = labels[cleanStatus] || cleanStatus;
 
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${styleClass}`}>
       <Icon className="h-3.5 w-3.5" />
-      {cleanStatus}
+      {label}
     </span>
   );
 };

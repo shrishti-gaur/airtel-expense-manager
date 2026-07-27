@@ -31,6 +31,41 @@ const ReceiptSection = ({
   const [docxLoading, setDocxLoading] = useState(false);
   const [docxError, setDocxError] = useState(null);
 
+  const isPdf = !receiptUrl ? false : (
+    (fileType && fileType.includes('pdf')) || 
+    /\.pdf$/i.test(fileName) || 
+    /\.pdf$/i.test(receiptUrl)
+  );
+
+  const isDocx = !receiptUrl ? false : (
+    (fileType && (fileType.includes('word') || fileType.includes('officedocument'))) || 
+    /\.(docx|doc)$/i.test(fileName) || 
+    /\.(docx|doc)$/i.test(receiptUrl)
+  );
+
+  // Detect file type
+  const isImage = !receiptUrl ? false : (
+    (fileType && fileType.includes('image')) || 
+    receiptUrl.startsWith('data:image') ||
+    /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileName) ||
+    (!fileType && !isPdf && !isDocx)
+  );
+
+  // Diagnostic Traces
+  console.log('[ReceiptSection] Trace details:');
+  console.log(' - receiptUrl:', receiptUrl);
+  console.log(' - fileName:', fileName);
+  console.log(' - fileType:', fileType);
+  console.log(' - isPdf evaluation:', isPdf);
+  console.log(' - isDocx evaluation:', isDocx);
+  console.log(' - isImage evaluation:', isImage);
+
+  // Reset PDF page number and total pages when document source URL changes
+  useEffect(() => {
+    setNumPages(null);
+    setPageNumber(1);
+  }, [receiptUrl]);
+
   const handleZoomIn = (e) => {
     e.stopPropagation();
     setZoomScale(s => Math.min(2.5, s + 0.25));
@@ -41,35 +76,21 @@ const ReceiptSection = ({
     setZoomScale(s => Math.max(0.5, s - 0.25));
   };
 
-  const isPdf = !receiptUrl ? false : (
-    fileType.includes('pdf') || 
-    /\.pdf$/i.test(fileName) || 
-    /\.pdf$/i.test(receiptUrl)
-  );
-
-  const isDocx = !receiptUrl ? false : (
-    fileType.includes('word') || 
-    fileType.includes('officedocument') || 
-    /\.(docx|doc)$/i.test(fileName) || 
-    /\.(docx|doc)$/i.test(receiptUrl)
-  );
-
-  // Detect file type
-  const isImage = !receiptUrl ? false : (
-    fileType.includes('image') || 
-    receiptUrl.startsWith('data:image') ||
-    /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileName) ||
-    (!fileType && !isPdf && !isDocx)
-  );
-
   // Handle PDF Loading callbacks
   const onDocumentLoadSuccess = ({ numPages }) => {
+    console.log('[ReceiptSection] PDF Document loaded successfully. Pages:', numPages);
     setNumPages(numPages);
     setPageNumber(1);
   };
 
+  const onDocumentLoadError = (error) => {
+    console.error('[ReceiptSection] PDF Document rendering failure:', error);
+  };
+
   // Handle DOCX client-side rendering inside standard ref container
   useEffect(() => {
+    let active = true;
+
     if (isDocx && receiptUrl && docxRef.current) {
       setDocxLoading(true);
       setDocxError(null);
@@ -80,7 +101,7 @@ const ReceiptSection = ({
           return res.arrayBuffer();
         })
         .then((arrayBuffer) => {
-          if (docxRef.current) {
+          if (active && docxRef.current) {
             docxRef.current.innerHTML = '';
             // Render the DOCX arraybuffer directly inside the target ref element
             return renderAsync(arrayBuffer, docxRef.current, undefined, {
@@ -92,14 +113,25 @@ const ReceiptSection = ({
           }
         })
         .then(() => {
-          setDocxLoading(false);
+          if (active) {
+            setDocxLoading(false);
+          }
         })
         .catch((err) => {
           console.error('[docx-preview] Render session failed:', err);
-          setDocxError('Failed to render Word document preview.');
-          setDocxLoading(false);
+          if (active) {
+            setDocxError('Failed to render Word document preview.');
+            setDocxLoading(false);
+          }
         });
     }
+
+    return () => {
+      active = false;
+      if (docxRef.current) {
+        docxRef.current.innerHTML = '';
+      }
+    };
   }, [receiptUrl, isDocx]);
 
   // Format file size metrics
@@ -185,12 +217,18 @@ const ReceiptSection = ({
             
             {/* IMAGE PREVIEW MODE */}
             {isImage && (
-              <div className="relative h-full w-full flex items-center justify-center overflow-auto">
+              <div className="relative h-full w-full flex items-center justify-center overflow-auto p-4">
                 <img
                   src={receiptUrl}
                   alt="Receipt Invoice"
-                  className="max-h-[380px] max-w-full object-contain rounded transition-transform origin-center cursor-zoom-in"
-                  style={{ transform: `scale(${zoomScale})` }}
+                  className="rounded transition-all duration-200 cursor-zoom-in"
+                  style={{
+                    width: `${100 * zoomScale}%`,
+                    height: 'auto',
+                    maxWidth: 'none',
+                    maxHeight: `${380 * zoomScale}px`,
+                    objectFit: 'contain'
+                  }}
                   onClick={() => setZoomOpen(true)}
                 />
               </div>
@@ -202,6 +240,7 @@ const ReceiptSection = ({
                 <Document
                   file={receiptUrl}
                   onLoadSuccess={onDocumentLoadSuccess}
+                  onLoadError={onDocumentLoadError}
                   loading={
                     <div className="flex flex-col items-center gap-2 py-8 text-slate-400">
                       <Loader2 className="h-8 w-8 animate-spin text-red-500" />

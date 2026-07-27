@@ -84,27 +84,28 @@ const ExpenseDetails = ({
             />
           ))}
 
-          {renderField('date', 'Invoice Date', (
+          {renderField('invoiceDate', 'Invoice Date', (
             <input
-              name="date"
+              name="invoiceDate"
               type="date"
               required
               disabled={!isEditable}
-              value={formData.date || ''}
+              value={formData.invoiceDate || ''}
               onChange={onChange}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-sans font-medium"
             />
           ))}
 
-          {renderField('expenseDate', 'Expense Date', (
+          {renderField('submissionDate', 'Submission Date & Time', (
             <input
-              name="expenseDate"
-              type="date"
-              required
-              disabled={!isEditable}
-              value={formData.expenseDate || ''}
-              onChange={onChange}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-sans font-medium"
+              name="submissionDate"
+              type="text"
+              disabled={true}
+              value={formData.submissionDate ? new Date(formData.submissionDate).toLocaleString('en-IN', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              }) : 'Generated upon creation/submission'}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 font-sans font-medium"
             />
           ))}
 

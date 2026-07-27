@@ -1,28 +1,31 @@
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const UIContext = createContext(null);
 
 export const UIProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'Welcome to Airtel Expense Manager',
-      description: 'Your expense workspace is active. Manage, scan, and audit your claims here.',
-      timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      read: false,
-      type: 'info'
-    },
-    {
-      id: 2,
-      title: 'System Synced',
-      description: 'Successfully established link to Oracle ERP General Ledger.',
-      timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      read: true,
-      type: 'success'
-    }
-  ]);
+  const [notifications, setNotifications] = useState(() => {
+    const baseTime = Date.now();
+    return [
+      {
+        id: 1,
+        title: 'Welcome to Airtel Expense Manager',
+        description: 'Your expense workspace is active. Manage, scan, and audit your claims here.',
+        timestamp: new Date(baseTime - 3600000).toISOString(), // 1 hour ago
+        read: false,
+        type: 'info'
+      },
+      {
+        id: 2,
+        title: 'System Synced',
+        description: 'Successfully established link to Oracle ERP General Ledger.',
+        timestamp: new Date(baseTime - 7200000).toISOString(), // 2 hours ago
+        read: true,
+        type: 'success'
+      }
+    ];
+  });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   // Play double chime notification sound using browser Web Audio API (no external file dependencies)

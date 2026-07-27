@@ -14,10 +14,10 @@
     "axios": "^1.18.1",
     "docx-preview": "^0.4.0",
     "lucide-react": "^1.26.0",
-    "pdfjs-dist": "^6.1.200",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-pdf": "^10.4.1",
+    "pdfjs-dist": "5.4.296",
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {

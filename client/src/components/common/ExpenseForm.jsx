@@ -27,8 +27,8 @@ const ExpenseForm = ({
   const [formData, setFormData] = useState({
     merchant: '',
     invoiceNumber: '',
-    date: '',
-    expenseDate: '',
+    invoiceDate: '',
+    submissionDate: '',
     amount: '',
     currency: 'INR',
     tax: '',
@@ -66,8 +66,8 @@ const ExpenseForm = ({
       setFormData({
         merchant: data.merchant || '',
         invoiceNumber: data.invoiceNumber || '',
-        date: data.date ? new Date(data.date).toISOString().split('T')[0] : '',
-        expenseDate: data.expenseDate ? new Date(data.expenseDate).toISOString().split('T')[0] : (data.date ? new Date(data.date).toISOString().split('T')[0] : ''),
+        invoiceDate: data.invoiceDate ? new Date(data.invoiceDate).toISOString().split('T')[0] : (data.date ? new Date(data.date).toISOString().split('T')[0] : ''),
+        submissionDate: data.submissionDate || '',
         amount: data.amount || '',
         currency: data.currency || 'INR',
         tax: data.tax || '',
@@ -91,8 +91,8 @@ const ExpenseForm = ({
       setFormData({
         merchant: '',
         invoiceNumber: '',
-        date: new Date().toISOString().split('T')[0],
-        expenseDate: new Date().toISOString().split('T')[0],
+        invoiceDate: new Date().toISOString().split('T')[0],
+        submissionDate: '',
         amount: '',
         currency: 'INR',
         tax: '',
@@ -176,8 +176,7 @@ const ExpenseForm = ({
   const validateForm = () => {
     const tempErrors = {};
     if (!formData.merchant?.trim()) tempErrors.merchant = 'Merchant name is required';
-    if (!formData.date) tempErrors.date = 'Invoice date is required';
-    if (!formData.expenseDate) tempErrors.expenseDate = 'Expense date is required';
+    if (!formData.invoiceDate) tempErrors.invoiceDate = 'Invoice date is required';
     if (!formData.category) tempErrors.category = 'Category selection is required';
     
     const amt = Number(formData.amount);
@@ -203,6 +202,7 @@ const ExpenseForm = ({
         ...formData,
         id: data?.id || `EXP-${Date.now()}`,
         status: 'Draft',
+        submissionDate: formData.submissionDate || new Date().toISOString(),
         receiptUrl,
         fileName,
         fileType,
@@ -223,6 +223,7 @@ const ExpenseForm = ({
         ...formData,
         id: data?.id || `EXP-${Date.now()}`,
         status: 'Submitted',
+        submissionDate: new Date().toISOString(),
         receiptUrl,
         fileName,
         fileType,
@@ -278,8 +279,8 @@ const ExpenseForm = ({
         {/* Modal Main Body */}
         <div className="flex flex-1 overflow-hidden">
           
-          {/* LEFT: Document Preview Section (Fixed at 50% split width) */}
-          <div className="hidden border-r border-slate-200 bg-slate-900 relative transition-all duration-300 lg:block w-[50%]">
+          {/* LEFT: Document Preview Section (Fixed at 50% split width on lg) */}
+          <div className="hidden border-r border-slate-200 bg-slate-900 relative transition-all duration-300 lg:block w-full lg:w-1/2">
             <ReceiptSection
               receiptUrl={receiptUrl}
               fileName={fileName}
@@ -291,8 +292,8 @@ const ExpenseForm = ({
             />
           </div>
 
-          {/* RIGHT: Form Fields Sections (Fixed at 50% split width) */}
-          <div className="flex flex-col flex-1 bg-slate-50 overflow-hidden w-[50%]">
+          {/* RIGHT: Form Fields Sections (Full width on mobile/tablet, 50% on lg) */}
+          <div className="flex flex-col flex-1 bg-slate-50 overflow-hidden w-full lg:w-1/2">
             
             {/* Scrollable Form Content */}
             <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
@@ -389,7 +390,7 @@ const ExpenseForm = ({
                 onSubmitClaim={handleSubmitClaim}
                 onApprove={() => handleActionClick('Approved', formData.managerComments)}
                 onReturn={() => setShowReturnRemarks(true)}
-                onReject={() => handleActionClick('Rejected', userRole === 'Manager' ? formData.managerComments : formData.financeComments)}
+                onReject={() => handleActionClick('Rejected', formData.financeComments)}
                 onDisburse={() => handleActionClick('Reimbursed', formData.financeComments)}
                 processing={processing}
                 showReturnRemarksFlag={showReturnRemarks}
