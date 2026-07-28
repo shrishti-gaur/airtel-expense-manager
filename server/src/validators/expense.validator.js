@@ -31,10 +31,11 @@ export const createExpenseValidator = [
       }
       return true;
     }),
-  body('date')
+  body('invoiceDate')
     .custom((value, { req }) => {
       if (req.body.status === 'Draft') return true;
-      if (!value || isNaN(Date.parse(value))) {
+      const targetDate = value || req.body.date;
+      if (!targetDate || isNaN(Date.parse(targetDate))) {
         throw new Error('A valid ISO8601 date is required');
       }
       return true;

@@ -21,7 +21,10 @@ export class ManagerService {
       query.department = { $in: ['Engineering', 'Sales'] };
     }
 
-    return await ExpenseClaim.find(query).sort({ createdAt: -1 });
+    console.log(`[Trace Log - Service] Querying pending claims from MongoDB with query:`, query);
+    const results = await ExpenseClaim.find(query).sort({ createdAt: -1 });
+    console.log(`[Trace Log - Service] Found ${results.length} pending claims in MongoDB.`);
+    return results;
   }
 
   /**
@@ -49,7 +52,9 @@ export class ManagerService {
       timestamp: new Date()
     });
 
+    console.log(`[Trace Log - Service] Manager ${managerId} saving reviewed claim ${claimId} with status ${status} to MongoDB Atlas...`);
     const updatedClaim = await claim.save();
+    console.log(`[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`);
 
     // Log Activity
     const managerEmp = await Employee.findOne({ employeeId: managerId });

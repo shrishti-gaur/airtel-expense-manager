@@ -6,8 +6,8 @@ export const reviewClaimValidator = [
     .notEmpty()
     .withMessage('Expense ID is required in URL parameters'),
   body('status')
-    .isIn(['APPROVED', 'REJECTED'])
-    .withMessage('Status must be either APPROVED or REJECTED'),
+    .isIn(['Approved', 'Returned'])
+    .withMessage('Status must be either Approved or Returned'),
   body('remarks')
     .optional()
     .trim(),

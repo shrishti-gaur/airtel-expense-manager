@@ -59,9 +59,10 @@ export const seedDB = async () => {
     }
     console.log('[Seed] Employee profiles synced.');
 
-    // 2. Seed Expense Claims if none exist
-    const claimsCount = await ExpenseClaim.countDocuments();
-    if (claimsCount === 0) {
+    // 2. Seed Expense Claims if SEED_DB environment variable is set to true
+    if (process.env.SEED_DB === 'true') {
+      const claimsCount = await ExpenseClaim.countDocuments();
+      if (claimsCount === 0) {
       console.log('[Seed] No expense claims found. Seeding initial claims...');
       const seedClaims = [
         {
@@ -266,10 +267,12 @@ export const seedDB = async () => {
       await ExpenseClaim.insertMany(seedClaims);
       console.log('[Seed] Initial expense claims seeded.');
     }
+  }
 
-    // 3. Seed Notifications if none exist
-    const notificationsCount = await Notification.countDocuments();
-    if (notificationsCount === 0) {
+    // 3. Seed Notifications if SEED_DB environment variable is set to true
+    if (process.env.SEED_DB === 'true') {
+      const notificationsCount = await Notification.countDocuments();
+      if (notificationsCount === 0) {
       console.log('[Seed] No notifications found. Seeding initial notifications...');
       const seedNotifications = [
         {
@@ -295,6 +298,7 @@ export const seedDB = async () => {
       await Notification.insertMany(seedNotifications);
       console.log('[Seed] Initial notifications seeded.');
     }
+  }
 
     console.log('[Seed] Seeding completion check done.');
   } catch (err) {

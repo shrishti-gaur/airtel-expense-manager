@@ -57,7 +57,9 @@ export class ExpenseService {
       ]
     });
 
+    console.log(`[Trace Log - Service] Attempting to save new claim ${claimId} to MongoDB Atlas...`);
     const savedClaim = await newClaim.save();
+    console.log(`[Trace Log - Service] Claim ${claimId} successfully saved. Document ID: ${savedClaim._id}, Status: ${savedClaim.status}`);
 
     // Create Activity Log
     await ActivityLog.create({
@@ -141,7 +143,9 @@ export class ExpenseService {
       });
     }
 
+    console.log(`[Trace Log - Service] Attempting to update claim ${claimId} in MongoDB Atlas...`);
     const updatedClaim = await claim.save();
+    console.log(`[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`);
 
     // Log Activity
     await ActivityLog.create({
@@ -173,19 +177,23 @@ export class ExpenseService {
    * Get all expense records belonging to a user
    */
   async getClaimsByUser(userId) {
-    console.log(`[Expense Service] Fetching claims for user ${userId}`);
-    return await ExpenseClaim.find({ employeeId: userId }).sort({ createdAt: -1 });
+    console.log(`[Trace Log - Service] Fetching claims from MongoDB for user ${userId}...`);
+    const results = await ExpenseClaim.find({ employeeId: userId }).sort({ createdAt: -1 });
+    console.log(`[Trace Log - Service] Found ${results.length} claims in MongoDB for user ${userId}`);
+    return results;
   }
 
   /**
    * Get a single claim record by custom claim id
    */
   async getClaimById(claimId) {
-    console.log(`[Expense Service] Fetching single claim: ${claimId}`);
+    console.log(`[Trace Log - Service] Fetching single claim ${claimId} from MongoDB...`);
     const claim = await ExpenseClaim.findOne({ id: claimId });
     if (!claim) {
+      console.error(`[Trace Log - Service] Claim ${claimId} not found in MongoDB`);
       throw new Error(`Claim not found with ID: ${claimId}`);
     }
+    console.log(`[Trace Log - Service] Found claim ${claimId} in MongoDB. Document ID: ${claim._id}, Status: ${claim.status}`);
     return claim;
   }
 }
