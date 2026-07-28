@@ -9,5 +9,6 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/metrics', dashboardMetricsValidator, dashboardController.getSummary);
+router.get('/activity-logs', dashboardController.getActivityLogs);
 
 export default router;

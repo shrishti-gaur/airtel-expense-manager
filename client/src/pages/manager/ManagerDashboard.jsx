@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
 import ExpenseForm from '../../components/common/ExpenseForm';
 import StatusBadge from '../../components/common/StatusBadge';
-import { INITIAL_CLAIMS } from '../../constants/mockData';
+import api from '../../services/api';
 import {
   ClipboardCheck,
   Check,
@@ -85,15 +85,19 @@ const ManagerDashboard = () => {
   }, [claimId, claims, location.pathname]);
 
   useEffect(() => {
-    // Simulate API fetch delay
-    setTimeout(() => {
-      // Load all claims belonging to the manager's department
-      const teamClaims = INITIAL_CLAIMS.filter(
-        (claim) => claim.department === 'Engineering' || claim.department === 'Sales'
-      );
-      setClaims(teamClaims);
-      setLoading(false);
-    }, 400);
+    const fetchClaims = async () => {
+      try {
+        const res = await api.get('/manager/pending');
+        if (res && res.success && res.data) {
+          setClaims(res.data.claims || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch pending manager claims:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClaims();
   }, []);
 
   // Compute team metrics
@@ -134,14 +138,8 @@ const ManagerDashboard = () => {
   const handleAction = async (claimId, decision, remarks = '') => {
     setActioning(claimId);
     try {
-      // Update local state list
-      const updatedClaims = claims.map((claim) =>
-        claim.id === claimId
-          ? { ...claim, status: decision, managerComments: remarks || `Reviewed by manager` }
-          : claim
-      );
-      
-      setClaims(updatedClaims);
+      // POST manager review to database
+      await api.post(`/manager/review/${claimId}`, { status: decision, remarks });
 
       // Clear search query param to trigger clean drawer close
       if (searchParams.get('claimId') === claimId) {
@@ -158,8 +156,14 @@ const ManagerDashboard = () => {
       const alertConf = statusLabels[decision] || { text: 'Claim Actioned', desc: `Claim ${claimId} updated to ${decision}.`, type: 'info' };
       addNotification(alertConf.text, alertConf.desc, alertConf.type);
 
+      // Re-fetch claims from database
+      const res = await api.get('/manager/pending');
+      if (res && res.success && res.data) {
+        setClaims(res.data.claims || []);
+      }
     } catch (err) {
       console.error('[Manager Review] Action failed:', err);
+      addNotification('Review Failed', err.message || 'Failed to submit review', 'error');
     } finally {
       setActioning(null);
       setIsFormOpen(false);

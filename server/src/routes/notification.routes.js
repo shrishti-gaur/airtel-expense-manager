@@ -9,6 +9,10 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', notificationController.getMyNotifications);
+router.post('/', notificationController.createNotification);
+router.patch('/read-all', notificationController.markAllRead);
 router.patch('/:id/read', markReadValidator, notificationController.markRead);
+router.delete('/:id', notificationController.clearNotification);
+router.delete('/', notificationController.clearAllNotifications);
 
 export default router;

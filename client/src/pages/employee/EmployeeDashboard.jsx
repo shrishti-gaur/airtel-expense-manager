@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
 import ExpenseForm from '../../components/common/ExpenseForm';
 import StatusBadge from '../../components/common/StatusBadge';
-import { INITIAL_CLAIMS } from '../../constants/mockData';
+import api from '../../services/api';
 import {
   Plus,
   UploadCloud,
@@ -72,15 +72,19 @@ const EmployeeDashboard = () => {
   };
 
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      // Filter claims belonging to employee
-      const employeeClaims = INITIAL_CLAIMS.filter(
-        (claim) => claim.employeeName === 'John Employee'
-      );
-      setClaims(employeeClaims);
-      setLoading(false);
-    }, 400);
+    const fetchClaims = async () => {
+      try {
+        const res = await api.get('/expense/my-claims');
+        if (res && res.success && res.data) {
+          setClaims(res.data.claims || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch employee claims:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClaims();
   }, []);
 
   // Listen to path changes and search parameters to open/close drawer
@@ -251,41 +255,45 @@ const EmployeeDashboard = () => {
     });
   };
 
-  const handleFormSubmit = (submittedData) => {
-    const isNew = !claims.some((item) => item.id === submittedData.id);
-    let updatedList = [];
+  const handleFormSubmit = async (submittedData) => {
+    setLoading(true);
+    try {
+      const isNew = !claims.some((item) => item.id === submittedData.id);
 
-    if (isNew) {
-      updatedList = [
-        {
-          ...submittedData,
-          employeeName: 'John Employee',
-          title: submittedData.description.split('.')[0] || 'Expense Claim',
-        },
-        ...claims,
-      ];
-      addNotification(
-        'Claim Submitted',
-        `Claim ${submittedData.id} for ₹${Number(submittedData.amount).toLocaleString('en-IN')} has been submitted for review.`,
-        'success'
-      );
-    } else {
-      updatedList = claims.map((item) =>
-        item.id === submittedData.id
-          ? { ...item, ...submittedData, title: submittedData.description.split('.')[0] || item.title }
-          : item
-      );
-      addNotification(
-        'Claim Draft Updated',
-        `Claim draft ${submittedData.id} has been saved.`,
-        'info'
-      );
+      if (isNew) {
+        await api.post('/expense', submittedData);
+        addNotification(
+          submittedData.status === 'Draft' ? 'Claim Draft Saved' : 'Claim Submitted',
+          submittedData.status === 'Draft'
+            ? `Claim draft has been saved.`
+            : `Claim for ₹${Number(submittedData.amount).toLocaleString('en-IN')} has been submitted for review.`,
+          submittedData.status === 'Draft' ? 'info' : 'success'
+        );
+      } else {
+        await api.put(`/expense/${submittedData.id}`, submittedData);
+        addNotification(
+          submittedData.status === 'Draft' ? 'Claim Draft Updated' : 'Claim Submitted',
+          submittedData.status === 'Draft'
+            ? `Claim draft ${submittedData.id} has been saved.`
+            : `Claim ${submittedData.id} has been submitted for review.`,
+          submittedData.status === 'Draft' ? 'info' : 'success'
+        );
+      }
+
+      // Re-fetch claims from database
+      const res = await api.get('/expense/my-claims');
+      if (res && res.success && res.data) {
+        setClaims(res.data.claims || []);
+      }
+    } catch (err) {
+      console.error('Failed to submit claim:', err);
+      addNotification('Submission Failed', err.message || 'An error occurred during submission', 'error');
+    } finally {
+      setLoading(false);
+      setIsFormOpen(false);
+      setActiveClaimData(null);
+      navigate('/employee');
     }
-
-    setClaims(updatedList);
-    setIsFormOpen(false);
-    setActiveClaimData(null);
-    navigate('/employee');
   };
 
   if (loading) {

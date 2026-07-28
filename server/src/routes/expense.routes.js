@@ -10,5 +10,7 @@ router.use(requireAuth);
 
 router.post('/', createExpenseValidator, expenseController.submitClaim);
 router.get('/my-claims', expenseController.getMyClaims);
+router.get('/:id', expenseController.getClaimDetails);
+router.put('/:id', createExpenseValidator, expenseController.updateClaim);
 
 export default router;

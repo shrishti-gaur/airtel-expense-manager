@@ -20,8 +20,8 @@ export class FinanceController {
    */
   async processBulkPayments(req, res, next) {
     try {
-      const { claimIds, action } = req.body;
-      const processResults = await financeService.bulkProcessClaims(claimIds, action);
+      const { claimIds, action, comments } = req.body;
+      const processResults = await financeService.bulkProcessClaims(claimIds, action, comments, req.user.id);
       return sendSuccess(res, 'Bulk payment processing completed successfully', { processed: processResults });
     } catch (error) {
       next(error);

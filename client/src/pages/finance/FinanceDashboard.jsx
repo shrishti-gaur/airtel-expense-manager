@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
 import ExpenseForm from '../../components/common/ExpenseForm';
 import StatusBadge from '../../components/common/StatusBadge';
-import { INITIAL_CLAIMS } from '../../constants/mockData';
+import api from '../../services/api';
 import {
   CreditCard,
   CheckSquare,
@@ -85,17 +85,38 @@ const FinanceDashboard = () => {
     }
   }, [claimId, claims, location.pathname]);
 
-  const [erpSyncLogs, setErpSyncLogs] = useState([
-    { timestamp: '2026-07-24 12:40', voucher: 'ORACLE-EXP-1721805624', claimId: 'EXP-2026-102' },
-    { timestamp: '2026-07-24 12:35', voucher: 'ORACLE-EXP-1721805315', claimId: 'EXP-2026-90' },
-  ]);
+  const [erpSyncLogs, setErpSyncLogs] = useState([]);
 
   useEffect(() => {
-    // Simulate loading delay
-    setTimeout(() => {
-      setClaims(INITIAL_CLAIMS);
-      setLoading(false);
-    }, 400);
+    const fetchClaims = async () => {
+      try {
+        const res = await api.get('/finance/audit');
+        if (res && res.success && res.data) {
+          const fetchedClaims = res.data.claims || [];
+          setClaims(fetchedClaims);
+
+          // Dynamically compute ERP sync logs from reimbursed claims
+          const reimbursed = fetchedClaims.filter((claim) => claim.status === 'Reimbursed');
+          const logs = reimbursed.map((claim) => {
+            const reimbHistory = claim.history?.find(h => h.action === 'REIMBURSED');
+            return {
+              timestamp: new Date(reimbHistory ? reimbHistory.timestamp : claim.updatedAt)
+                .toISOString()
+                .replace('T', ' ')
+                .substring(0, 16),
+              voucher: claim.oracleRefId || `ORACLE-EXP-MOCK-${claim.id}`,
+              claimId: claim.id
+            };
+          });
+          setErpSyncLogs(logs);
+        }
+      } catch (err) {
+        console.error('Failed to fetch finance audit claims:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClaims();
   }, []);
 
   // Compute metrics totals (global corporate view)
@@ -132,48 +153,67 @@ const FinanceDashboard = () => {
     }
   };
 
-  const handleLocalDisbursement = (claimIds, decision = 'Reimbursed', comments = '') => {
-    const claimsToPay = claims.filter((claim) => claimIds.includes(claim.id));
-    
-    // Generate new ERP sync logs
-    const newLogs = claimsToPay.map(claim => ({
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      voucher: `ORACLE-EXP-${Math.floor(Math.random() * 90000000) + 10000000}`,
-      claimId: claim.id
-    }));
+  const fetchClaimsFromDb = async () => {
+    try {
+      const res = await api.get('/finance/audit');
+      if (res && res.success && res.data) {
+        const fetchedClaims = res.data.claims || [];
+        setClaims(fetchedClaims);
 
-    const updatedClaims = claims.map((claim) =>
-      claimIds.includes(claim.id)
-        ? { ...claim, status: decision, financeComments: comments || 'Payment settled.' }
-        : claim
-    );
-
-    setClaims(updatedClaims);
-    setErpSyncLogs(prev => [...newLogs, ...prev]);
-
-    // Send notifications for disbursements
-    claimIds.forEach(id => {
-      addNotification(
-        'Reimbursement Settled',
-        `Payment disbursed and synced to Oracle ERP for claim ${id}.`,
-        'success'
-      );
-    });
+        // Dynamically compute ERP sync logs from reimbursed claims
+        const reimbursed = fetchedClaims.filter((claim) => claim.status === 'Reimbursed');
+        const logs = reimbursed.map((claim) => {
+          const reimbHistory = claim.history?.find(h => h.action === 'REIMBURSED');
+          return {
+            timestamp: new Date(reimbHistory ? reimbHistory.timestamp : claim.updatedAt)
+              .toISOString()
+              .replace('T', ' ')
+              .substring(0, 16),
+            voucher: claim.oracleRefId || `ORACLE-EXP-MOCK-${claim.id}`,
+            claimId: claim.id
+          };
+        });
+        setErpSyncLogs(logs);
+      }
+    } catch (err) {
+      console.error('Failed to fetch finance audit claims:', err);
+    }
   };
 
   const executePayoutAction = async (claimId, action, comments = '') => {
     const sequence = [
-      { message: 'Sending Request...', duration: 900 },
-      { message: 'Processing...', duration: 1100 },
-      { message: 'Almost Done...', duration: 500 }
+      { message: 'Sending Request...', duration: 500 },
+      { message: 'Processing...', duration: 500 },
+      { message: 'Almost Done...', duration: 200 }
     ];
 
-    runWithLoading(sequence, () => {
-      handleLocalDisbursement([claimId], action, comments);
-      setIsFormOpen(false);
-      if (searchParams.get('claimId') === claimId) {
-        searchParams.delete('claimId');
-        setSearchParams(searchParams);
+    runWithLoading(sequence, async () => {
+      try {
+        const erpAction = action === 'Reimbursed' ? 'PROCESS_PAYMENT' : 'REJECT_PAYMENT';
+        await api.post('/finance/bulk-process', {
+          claimIds: [claimId],
+          action: erpAction,
+          comments
+        });
+
+        addNotification(
+          action === 'Reimbursed' ? 'Reimbursement Settled' : 'Claim Rejected',
+          action === 'Reimbursed'
+            ? `Payment disbursed and synced to Oracle ERP for claim ${claimId}.`
+            : `Claim ${claimId} has been rejected by Finance.`,
+          action === 'Reimbursed' ? 'success' : 'error'
+        );
+
+        await fetchClaimsFromDb();
+
+        setIsFormOpen(false);
+        if (searchParams.get('claimId') === claimId) {
+          searchParams.delete('claimId');
+          setSearchParams(searchParams);
+        }
+      } catch (err) {
+        console.error('Disbursement processing failed:', err);
+        addNotification('Processing Failed', err.message || 'Failed to process payout', 'error');
       }
     });
   };
@@ -182,20 +222,32 @@ const FinanceDashboard = () => {
     if (selectedClaims.length === 0) return;
 
     const sequence = [
-      { message: 'Sending Request...', duration: 1000 },
-      { message: 'Processing...', duration: 1200 },
-      { message: 'Almost Done...', duration: 600 }
+      { message: 'Sending Request...', duration: 600 },
+      { message: 'Processing...', duration: 600 },
+      { message: 'Almost Done...', duration: 200 }
     ];
 
-    runWithLoading(sequence, () => {
-      const claimCount = selectedClaims.length;
-      handleLocalDisbursement(selectedClaims, 'Reimbursed', 'Bulk processed disbursement.');
-      setSelectedClaims([]);
-      addNotification(
-        'Bulk Disbursements Completed',
-        `Successfully settled and synced ${claimCount} claims to Oracle General Ledger.`,
-        'success'
-      );
+    runWithLoading(sequence, async () => {
+      try {
+        const claimCount = selectedClaims.length;
+        await api.post('/finance/bulk-process', {
+          claimIds: selectedClaims,
+          action: 'PROCESS_PAYMENT',
+          comments: 'Bulk processed disbursement.'
+        });
+
+        addNotification(
+          'Bulk Disbursements Completed',
+          `Successfully settled and synced ${claimCount} claims to Oracle General Ledger.`,
+          'success'
+        );
+
+        setSelectedClaims([]);
+        await fetchClaimsFromDb();
+      } catch (err) {
+        console.error('Bulk payment processing failed:', err);
+        addNotification('Processing Failed', err.message || 'Failed to process bulk payments', 'error');
+      }
     });
   };
 

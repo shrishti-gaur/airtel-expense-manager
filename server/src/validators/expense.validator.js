@@ -2,21 +2,42 @@ import { body } from 'express-validator';
 import { validateRequest } from '../middleware/validator.middleware.js';
 
 export const createExpenseValidator = [
+  body('status').optional(),
   body('amount')
-    .isNumeric()
-    .withMessage('Expense amount must be a numeric value')
-    .custom((value) => value > 0)
-    .withMessage('Expense amount must be greater than zero'),
+    .custom((value, { req }) => {
+      if (req.body.status === 'Draft') return true;
+      if (value === undefined || value === null || value === '') {
+        throw new Error('Expense amount must be a numeric value');
+      }
+      const num = Number(value);
+      if (isNaN(num) || num <= 0) {
+        throw new Error('Expense amount must be a numeric value greater than zero');
+      }
+      return true;
+    }),
   body('category')
-    .notEmpty()
-    .withMessage('Expense category is required')
-    .trim(),
+    .custom((value, { req }) => {
+      if (req.body.status === 'Draft') return true;
+      if (!value || !value.trim()) {
+        throw new Error('Expense category is required');
+      }
+      return true;
+    }),
   body('description')
-    .notEmpty()
-    .withMessage('Expense description is required')
-    .trim(),
+    .custom((value, { req }) => {
+      if (req.body.status === 'Draft') return true;
+      if (!value || !value.trim()) {
+        throw new Error('Expense description is required');
+      }
+      return true;
+    }),
   body('date')
-    .isISO8601()
-    .withMessage('A valid ISO8601 date is required'),
+    .custom((value, { req }) => {
+      if (req.body.status === 'Draft') return true;
+      if (!value || isNaN(Date.parse(value))) {
+        throw new Error('A valid ISO8601 date is required');
+      }
+      return true;
+    }),
   validateRequest,
 ];

@@ -14,6 +14,18 @@ export class DashboardController {
       next(error);
     }
   }
+
+  /**
+   * Fetch activity logs
+   */
+  async getActivityLogs(req, res, next) {
+    try {
+      const logs = await dashboardService.getActivityLogs(req.user.id, req.user.role);
+      return sendSuccess(res, 'Activity logs retrieved successfully', { logs });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const dashboardController = new DashboardController();

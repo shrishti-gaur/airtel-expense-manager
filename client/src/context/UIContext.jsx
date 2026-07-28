@@ -1,35 +1,18 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
+import { useAuth } from './AuthContext';
 
 const UIContext = createContext(null);
 
 export const UIProvider = ({ children }) => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
-  const [notifications, setNotifications] = useState(() => {
-    const baseTime = Date.now();
-    return [
-      {
-        id: 1,
-        title: 'Welcome to Airtel Expense Manager',
-        description: 'Your expense workspace is active. Manage, scan, and audit your claims here.',
-        timestamp: new Date(baseTime - 3600000).toISOString(), // 1 hour ago
-        read: false,
-        type: 'info'
-      },
-      {
-        id: 2,
-        title: 'System Synced',
-        description: 'Successfully established link to Oracle ERP General Ledger.',
-        timestamp: new Date(baseTime - 7200000).toISOString(), // 2 hours ago
-        read: true,
-        type: 'success'
-      }
-    ];
-  });
+  const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Play double chime notification sound using browser Web Audio API (no external file dependencies)
-  const playNotificationSound = () => {
+  // Play double chime notification sound using browser Web Audio API
+  const playNotificationSound = useCallback(() => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       
@@ -56,35 +39,130 @@ export const UIProvider = ({ children }) => {
     } catch (e) {
       console.warn('Web Audio API chime failed to play:', e);
     }
-  };
+  }, []);
 
-  const addNotification = (title, description, type = 'info') => {
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await api.get('/notification');
+      if (response && response.success && response.data) {
+        setNotifications(response.data.notifications || []);
+      }
+    } catch (err) {
+      console.error('Failed to load notifications from database:', err);
+    }
+  }, [user]);
+
+  // Load user notifications on login / profile change
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      // Defer state update to next microtask tick
+      Promise.resolve().then(() => {
+        if (active) {
+          setNotifications([]);
+        }
+      });
+      return;
+    }
+    
+    api.get('/notification')
+      .then((response) => {
+        if (active && response && response.success && response.data) {
+          setNotifications(response.data.notifications || []);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load notifications from database:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const addNotification = async (title, description, type = 'info') => {
+    // Optimistic local state append
+    const localId = `local-${Date.now()}`;
     const newNotif = {
-      id: Date.now(),
+      id: localId,
       title,
       description,
       timestamp: new Date().toISOString(),
       read: false,
       type
     };
+
     setNotifications((prev) => [newNotif, ...prev]);
     playNotificationSound();
+
+    // Persist to MongoDB if user is authenticated
+    if (user) {
+      try {
+        await api.post('/notification', { title, description, type });
+        fetchNotifications(); // reload to get actual DB ids
+      } catch (err) {
+        console.error('Failed to persist notification:', err);
+      }
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    // Optimistic UI update
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await api.patch('/notification/read-all');
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark all read:', err);
+    }
   };
 
-  const markAsRead = (id) => {
+  const markAsRead = async (id) => {
+    // Skip if already read or local notification
+    const item = notifications.find(n => n.id === id);
+    if (!item || item.read) return;
+
+    // Optimistic UI update
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+
+    if (typeof id === 'string' && id.startsWith('local-')) {
+      return;
+    }
+
+    try {
+      await api.patch(`/notification/${id}/read`);
+      fetchNotifications();
+    } catch (err) {
+      console.error(`Failed to mark read notification ${id}:`, err);
+    }
   };
 
-  const clearNotification = (id) => {
+  const clearNotification = async (id) => {
+    // Optimistic UI update
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+    if (typeof id === 'string' && id.startsWith('local-')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/notification/${id}`);
+      fetchNotifications();
+    } catch (err) {
+      console.error(`Failed to clear notification ${id}:`, err);
+    }
   };
 
-  const clearAllNotifications = () => {
+  const clearAllNotifications = async () => {
+    // Optimistic UI update
     setNotifications([]);
+    try {
+      await api.delete('/notification');
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to clear all notifications:', err);
+    }
   };
 
   // Reusable loading simulator runner
