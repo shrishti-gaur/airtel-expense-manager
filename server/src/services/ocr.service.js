@@ -12,19 +12,15 @@ export class OcrService {
     // Simulate OCR extraction latency
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // Return mock receipt metadata entities
+    // Return empty OCR fields to ensure the form starts completely blank for user entry
     return {
-      vendor: 'Airtel Broadband Services',
-      amount: 1499.0,
+      vendor: '',
+      amount: '',
       currency: 'INR',
-      date: new Date('2026-07-20'),
-      taxAmount: 228.66,
-      extractedItems: [
-        { desc: 'Broadband Subscription Plan - July', amount: 1270.34 },
-        { desc: 'CGST @ 9%', amount: 114.33 },
-        { desc: 'SGST @ 9%', amount: 114.33 },
-      ],
-      confidenceScore: 0.94,
+      date: '',
+      taxAmount: '',
+      extractedItems: [],
+      confidenceScore: 1.0,
     };
   }
 }
