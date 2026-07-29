@@ -26,9 +26,9 @@ const storage = multer.diskStorage({
   },
 });
 
-// File Filters (images and PDFs only)
+// File Filters (images, PDFs, and Word documents)
 const fileFilter = (req, file, cb) => {
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
   const ext = path.extname(file.originalname).toLowerCase();
   
   if (allowedExtensions.includes(ext)) {

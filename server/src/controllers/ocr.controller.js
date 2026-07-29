@@ -12,7 +12,12 @@ export class OcrController {
       }
       
       const ocrResults = await ocrService.processReceipt(req.file.path);
-      return sendSuccess(res, 'Receipt processed successfully via OCR scanner', ocrResults);
+      const receiptUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      
+      return sendSuccess(res, 'Receipt processed successfully via OCR scanner', {
+        ...ocrResults,
+        receiptUrl,
+      });
     } catch (error) {
       next(error);
     }

@@ -3,6 +3,11 @@ import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
 import compression from 'compression';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Config and services
 import { config } from './config/env.js';
@@ -27,7 +32,9 @@ const app = express();
 connectDB();
 
 // 2. Global Security and Utility Middlewares
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 app.use(cors({
   origin: '*', // TODO: Restrict in production
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
@@ -36,6 +43,7 @@ app.use(cors({
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Standard Dev Logging
 if (config.nodeEnv === 'development') {

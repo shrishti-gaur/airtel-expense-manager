@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertTriangle, MessageSquare } from 'lucide-react';
 import Button from '../ui/Button';
+import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 // Modular Child Components
 import StatusBadge from './StatusBadge';
@@ -23,6 +25,7 @@ const ExpenseForm = ({
   onAction,
   userRole = 'Employee',
 }) => {
+  const { user } = useAuth();
   // Centralized Form Fields State
   const [formData, setFormData] = useState({
     merchant: '',
@@ -129,7 +132,7 @@ const ExpenseForm = ({
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const allowedMimeTypes = [
@@ -137,9 +140,10 @@ const ExpenseForm = ({
         'image/jpeg',
         'image/jpg',
         'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword'
       ];
-      const allowedExtensions = ['.png', '.jpg', '.jpeg', '.pdf', '.docx'];
+      const allowedExtensions = ['.png', '.jpg', '.jpeg', '.pdf', '.docx', '.doc'];
       
       const fileExt = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
       const isMimeValid = file.type && allowedMimeTypes.includes(file.type);
@@ -150,24 +154,38 @@ const ExpenseForm = ({
         return;
       }
 
-      const url = URL.createObjectURL(file);
-      setReceiptUrl(url);
-      setFileName(file.name);
-      setFileType(file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'));
-      setFileSize(file.size);
-      setUploadDate(new Date().toISOString());
+      try {
+        const formDataPayload = new FormData();
+        formDataPayload.append('receipt', file);
 
-      // Preload placeholders to simulate future OCR extraction fields
-      if (mode === 'Create' && !formData.merchant) {
-        setFormData((prev) => ({
-          ...prev,
-          merchant: file.name.toLowerCase().includes('airtel') ? 'Airtel India Broadband' : 'Global Telecom Merchant',
-          invoiceNumber: `INV-${Math.floor(Math.random() * 900000) + 100000}`,
-          amount: '1499',
-          tax: '228.66',
-          category: 'Internet & Communications',
-          description: `Auto-extracted receipt details for file ${file.name}.`,
-        }));
+        const res = await api.post('/ocr/scan', formDataPayload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        const extracted = res.data;
+        const uploadedUrl = extracted.receiptUrl || URL.createObjectURL(file);
+
+        setReceiptUrl(uploadedUrl);
+        setFileName(file.name);
+        setFileType(file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.doc' ? 'application/msword' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'));
+        setFileSize(file.size);
+        setUploadDate(new Date().toISOString());
+
+        // Preload placeholders to simulate future OCR extraction fields
+        if (mode === 'Create' && !formData.merchant) {
+          setFormData((prev) => ({
+            ...prev,
+            merchant: extracted.vendor || (file.name.toLowerCase().includes('airtel') ? 'Airtel India Broadband' : 'Global Telecom Merchant'),
+            invoiceNumber: extracted.invoiceNumber || `INV-${Math.floor(Math.random() * 900000) + 100000}`,
+            amount: extracted.amount || '1499',
+            tax: extracted.taxAmount || '228.66',
+            category: 'Internet & Communications',
+            description: `Auto-extracted receipt details for file ${file.name}.`,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to upload receipt file:', err);
+        alert('Failed to upload receipt file to server.');
       }
     }
   };
@@ -208,7 +226,7 @@ const ExpenseForm = ({
         fileType,
         fileSize,
         uploadDate,
-        employeeName: data?.employeeName || 'John Employee',
+        employeeName: data?.employeeName || user?.name || 'Unknown Employee',
       });
     }
   };
@@ -229,7 +247,7 @@ const ExpenseForm = ({
         fileType,
         fileSize,
         uploadDate,
-        employeeName: data?.employeeName || 'John Employee',
+        employeeName: data?.employeeName || user?.name || 'Unknown Employee',
       });
     }
   };
@@ -264,7 +282,7 @@ const ExpenseForm = ({
             </div>
             {mode !== 'Create' && (
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-3 mt-0.5 font-sans">
-                Filed By: {data?.employeeName || 'John Employee'}
+                Filed By: {data?.employeeName || user?.name || 'Unknown Employee'}
               </span>
             )}
           </div>
@@ -279,8 +297,8 @@ const ExpenseForm = ({
         {/* Modal Main Body */}
         <div className="flex flex-1 overflow-hidden">
           
-          {/* LEFT: Document Preview Section (Fixed at 50% split width on lg) */}
-          <div className="hidden border-r border-slate-200 bg-slate-900 relative transition-all duration-300 lg:block w-full lg:w-1/2">
+          {/* LEFT: Document Preview Section (Fixed at 50% split width on md) */}
+          <div className="hidden border-r border-slate-200 bg-slate-900 relative transition-all duration-300 md:block w-full md:w-1/2">
             <ReceiptSection
               receiptUrl={receiptUrl}
               fileName={fileName}
@@ -292,8 +310,8 @@ const ExpenseForm = ({
             />
           </div>
 
-          {/* RIGHT: Form Fields Sections (Full width on mobile/tablet, 50% on lg) */}
-          <div className="flex flex-col flex-1 bg-slate-50 overflow-hidden w-full lg:w-1/2">
+          {/* RIGHT: Form Fields Sections (Full width on mobile/tablet, 50% on md) */}
+          <div className="flex flex-col flex-1 bg-slate-50 overflow-hidden w-full md:w-1/2">
             
             {/* Scrollable Form Content */}
             <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">

@@ -12,7 +12,7 @@ export class ManagerController {
       console.log(`[Trace Log - Controller] GET /api/v1/manager/pending success. Found ${claims.length} claims.`);
       return sendSuccess(res, 'Pending claims retrieved successfully', { claims });
     } catch (error) {
-      console.error(`[Trace Log - Controller] GET /api/v1/manager/pending error:`, error);
+      console.error('[Trace Log - Controller] GET /api/v1/manager/pending error:', error);
       next(error);
     }
   }
@@ -29,7 +29,7 @@ export class ManagerController {
       console.log(`[Trace Log - Controller] POST /api/v1/manager/review/${id} success. Final status: ${reviewResult.status}`);
       return sendSuccess(res, `Claim has been successfully ${status.toLowerCase()}`, reviewResult);
     } catch (error) {
-      console.error(`[Trace Log - Controller] POST /api/v1/manager/review/${id} error:`, error);
+      console.error(`[Trace Log - Controller] POST /api/v1/manager/review/${req.params.id} error:`, error);
       next(error);
     }
   }

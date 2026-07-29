@@ -13,15 +13,14 @@ export class ManagerService {
     // Find the manager's profile
     const manager = await Employee.findOne({ employeeId: managerId });
     
-    // Managers review claims with status 'Submitted'
-    const query = { status: 'Submitted' };
+    const query = {};
     
     // Restrict manager to Engineering and Sales department claims (matching mock data filters)
     if (manager) {
       query.department = { $in: ['Engineering', 'Sales'] };
     }
 
-    console.log(`[Trace Log - Service] Querying pending claims from MongoDB with query:`, query);
+    console.log('[Trace Log - Service] Querying pending claims from MongoDB with query:', query);
     const results = await ExpenseClaim.find(query).sort({ createdAt: -1 });
     console.log(`[Trace Log - Service] Found ${results.length} pending claims in MongoDB.`);
     return results;

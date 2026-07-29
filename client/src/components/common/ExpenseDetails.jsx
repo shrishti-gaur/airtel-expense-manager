@@ -18,7 +18,7 @@ const ExpenseDetails = ({
 
   // Render field with OCR confidence indicator
   const renderField = (name, label, children) => {
-    const confidence = ocrConfidence[name];
+    const confidence = ocrConfidence?.[name];
     const isLowConfidence = confidence && confidence < 80;
     const errorMsg = errors[name];
 

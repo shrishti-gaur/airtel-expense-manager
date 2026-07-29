@@ -62,24 +62,17 @@ const AppRoutes = () => {
 
           {/* Employee Routes */}
           <Route element={<RoleRoute allowedRoles={['Employee']} />}>
-            <Route path="/employee" element={<EmployeeDashboard />} />
-            <Route path="/employee/scan" element={<EmployeeDashboard />} />
-            <Route path="/employee/submit" element={<EmployeeDashboard />} />
-            <Route path="/employee/claims" element={<EmployeeDashboard />} />
+            <Route path="/employee/*" element={<EmployeeDashboard />} />
           </Route>
 
           {/* Manager Routes */}
           <Route element={<RoleRoute allowedRoles={['Manager']} />}>
-            <Route path="/manager" element={<ManagerDashboard />} />
-            <Route path="/manager/reviews" element={<ManagerDashboard />} />
-            <Route path="/manager/teams" element={<ManagerDashboard />} />
+            <Route path="/manager/*" element={<ManagerDashboard />} />
           </Route>
 
           {/* Finance Routes */}
           <Route element={<RoleRoute allowedRoles={['Finance']} />}>
-            <Route path="/finance" element={<FinanceDashboard />} />
-            <Route path="/finance/audit" element={<FinanceDashboard />} />
-            <Route path="/finance/disbursements" element={<FinanceDashboard />} />
+            <Route path="/finance/*" element={<FinanceDashboard />} />
           </Route>
 
           {/* Shared pages */}

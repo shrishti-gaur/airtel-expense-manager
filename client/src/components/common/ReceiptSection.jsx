@@ -3,9 +3,11 @@ import { ZoomIn, ZoomOut, Upload, FileText, X, FileCode, ChevronLeft, ChevronRig
 import { Document, Page, pdfjs } from 'react-pdf';
 import { renderAsync } from 'docx-preview';
 
-// Set up the PDFjs worker using Vite URL resolver for clean local bundling
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+// Set up the PDFjs worker using URL constructor for offline-first local Vite bundling
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 /**
  * ReceiptSection component handling uploads, previews, and zoom states

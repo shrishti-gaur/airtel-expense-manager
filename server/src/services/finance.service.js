@@ -17,7 +17,10 @@ export class FinanceService {
       query.status = filters.status;
     }
 
-    return await ExpenseClaim.find(query).sort({ createdAt: -1 });
+    console.log('[Trace Log - Service] Querying audit claims from MongoDB with query:', query);
+    const results = await ExpenseClaim.find(query).sort({ createdAt: -1 });
+    console.log(`[Trace Log - Service] Found ${results.length} audit claims in MongoDB.`);
+    return results;
   }
 
   /**
@@ -74,7 +77,9 @@ export class FinanceService {
         timestamp: new Date()
       });
 
+      console.log(`[Trace Log - Service] Finance ${financeId} saving processed claim ${claimId} with status ${claim.status} to MongoDB Atlas...`);
       const updatedClaim = await claim.save();
+      console.log(`[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`);
 
       // Log Activity
       await ActivityLog.create({

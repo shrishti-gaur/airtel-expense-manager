@@ -55,6 +55,7 @@ export class DashboardService {
         date: log.timestamp
       }));
 
+      console.log('[Trace Log - Service] Compiled Employee dashboard stats:', result, `Recent logs count: ${recentActivity.length}`);
       return {
         ...result,
         recentActivity
@@ -114,6 +115,7 @@ export class DashboardService {
         date: claim.submissionDate || claim.createdAt
       }));
 
+      console.log('[Trace Log - Service] Compiled Manager dashboard stats:', result, `Recent requests count: ${recentRequests.length}`);
       return {
         ...result,
         recentRequests
@@ -204,6 +206,7 @@ export class DashboardService {
         );
       }
 
+      console.log('[Trace Log - Service] Compiled Finance dashboard stats:', result, `Timeline entries: ${payoutsTimeline.length}`);
       return {
         ...result,
         payoutsTimeline
@@ -218,11 +221,15 @@ export class DashboardService {
    */
   async getActivityLogs(userId, role) {
     console.log(`[Dashboard Service] Fetching activity logs for ${userId} (${role})`);
+    console.log('[Trace Log - Service] Querying activity logs from MongoDB...');
+    let logs;
     if (role === 'Employee') {
-      return await ActivityLog.find({ userId }).sort({ timestamp: -1 }).limit(100);
+      logs = await ActivityLog.find({ userId }).sort({ timestamp: -1 }).limit(100);
+    } else {
+      logs = await ActivityLog.find().sort({ timestamp: -1 }).limit(100);
     }
-    // Managers and Finance can view all activity logs
-    return await ActivityLog.find().sort({ timestamp: -1 }).limit(100);
+    console.log(`[Trace Log - Service] Found ${logs.length} activity logs in MongoDB.`);
+    return logs;
   }
 }
 

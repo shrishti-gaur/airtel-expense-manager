@@ -1,10 +1,11 @@
 import { sendError } from '../utils/response.util.js';
 
+import { authService } from '../services/auth.service.js';
+
 /**
- * Middleware checking Authorization Headers and extracting the user payload.
- * Stub implementation for Enterprise Entra ID integration.
+ * Middleware checking Authorization Headers and extracting the user payload from MongoDB.
  */
-export const requireAuth = (req, res, next) => {
+export const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -13,20 +14,9 @@ export const requireAuth = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
 
-  // TODO: Add Microsoft Entra ID JWT verification logic here.
-  // For now, we mock-decode the token or verify custom mock tokens.
   try {
-    if (token === 'mock-employee-token') {
-      req.user = { id: 'emp_123', name: 'John Employee', role: 'Employee' };
-    } else if (token === 'mock-manager-token') {
-      req.user = { id: 'mgr_456', name: 'Sarah Manager', role: 'Manager' };
-    } else if (token === 'mock-finance-token') {
-      req.user = { id: 'fin_789', name: 'David Finance', role: 'Finance' };
-    } else {
-      // General mock user if code is passed
-      req.user = { id: 'user_gen', name: 'General User', role: 'Employee' };
-    }
-
+    const sessionUser = await authService.verifySession(token);
+    req.user = sessionUser;
     next();
   } catch (error) {
     return sendError(res, 'Token validation failed', { code: 'INVALID_TOKEN', details: error.message }, 403);

@@ -12,7 +12,7 @@ export class ExpenseController {
       console.log(`[Trace Log - Controller] POST /api/v1/expense - submitClaim success. Claim ID: ${claim.id}`);
       return sendSuccess(res, 'Expense claim submitted successfully', claim, 201);
     } catch (error) {
-      console.error(`[Trace Log - Controller] POST /api/v1/expense - submitClaim error:`, error);
+      console.error('[Trace Log - Controller] POST /api/v1/expense - submitClaim error:', error);
       next(error);
     }
   }
@@ -27,7 +27,7 @@ export class ExpenseController {
       console.log(`[Trace Log - Controller] GET /api/v1/expense/my-claims success. Retrieved ${claims.length} claims.`);
       return sendSuccess(res, 'Claims retrieved successfully', { claims });
     } catch (error) {
-      console.error(`[Trace Log - Controller] GET /api/v1/expense/my-claims error:`, error);
+      console.error('[Trace Log - Controller] GET /api/v1/expense/my-claims error:', error);
       next(error);
     }
   }
