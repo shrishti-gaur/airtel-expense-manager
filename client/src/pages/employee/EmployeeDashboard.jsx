@@ -197,27 +197,29 @@ const EmployeeDashboard = () => {
         const fileExt = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
 
         const claimData = {
-          merchant: extracted.vendor || (file.name.toLowerCase().includes('airtel') ? 'Airtel India Broadband' : 'Global Telecom Merchant'),
-          invoiceNumber: extracted.invoiceNumber || `INV-OCR-${Math.floor(Math.random() * 90000) + 10000}`,
-          invoiceDate: extracted.date ? new Date(extracted.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          merchant: extracted.vendor || '',
+          invoiceNumber: extracted.invoiceNumber || '',
+          invoiceDate: extracted.date ? new Date(extracted.date).toISOString().split('T')[0] : '',
           submissionDate: new Date().toISOString(),
-          amount: extracted.amount || 1499,
-          tax: extracted.taxAmount || 228.66,
-          category: 'Internet & Communications',
-          description: `AI Extracted billing details from uploaded receipt document: "${file.name}".`,
+          amount: extracted.amount || '',
+          tax: extracted.taxAmount || '',
+          category: extracted.category || '',
+          description: extracted.description || '',
           receiptUrl: extracted.receiptUrl,
           fileName: file.name,
           fileType: file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'),
           fileSize: file.size,
-          ocrOverallScore: Math.round((extracted.confidenceScore || 0.94) * 100),
+          ocrOverallScore: extracted.confidenceScore ? Math.round(extracted.confidenceScore * 100) : null,
           ocrTimestamp: new Date().toISOString(),
-          ocrConfidence: { merchant: 95, invoiceNumber: 88, amount: 98, tax: 85, date: 94, category: 90 },
+          ocrConfidence: extracted.ocrConfidence || null,
         };
 
         setActiveClaimData(claimData);
         addNotification(
           'OCR Scanning Succeeded',
-          `Successfully extracted ₹${claimData.amount.toLocaleString('en-IN')} from "${file.name}". Review details in the form.`,
+          claimData.amount
+            ? `Successfully extracted ₹${Number(claimData.amount).toLocaleString('en-IN')} from "${file.name}". Review details in the form.`
+            : `File "${file.name}" uploaded successfully. Fill in claim details.`,
           'success'
         );
         setFormMode('Create');
@@ -236,42 +238,7 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const handleFastOcrDemo = () => {
-    const sequence = [
-      { message: 'Uploading Receipt...', duration: 900 },
-      { message: 'Reading Receipt...', duration: 1100 },
-      { message: 'Extracting Text...', duration: 1200 },
-      { message: 'Processing...', duration: 700 },
-      { message: 'Almost Done...', duration: 500 }
-    ];
-    
-    runWithLoading(sequence, () => {
-      const mockClaim = {
-        merchant: 'Simulated Airtel Broadband Center',
-        invoiceNumber: 'INV-OCR-2026',
-        invoiceDate: new Date().toISOString().split('T')[0],
-        submissionDate: new Date().toISOString(),
-        amount: 1499,
-        tax: 228.66,
-        category: 'Internet & Communications',
-        description: 'AI Extracted broadband monthly subscription charges.',
-        receiptUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
-        ocrOverallScore: 84,
-        ocrTimestamp: new Date().toISOString(),
-        ocrConfidence: { merchant: 95, invoiceNumber: 72, amount: 98, tax: 65, date: 92, category: 78 },
-      };
 
-      setActiveClaimData(mockClaim);
-      addNotification(
-        'OCR Demo Success',
-        'Simulated OCR successfully extracted charges details. Form pre-filled.',
-        'success'
-      );
-      setFormMode('Create');
-      setIsFormOpen(true);
-      navigate('/employee/submit');
-    });
-  };
 
   const handleFormSubmit = async (submittedData) => {
     setLoading(true);
@@ -373,11 +340,6 @@ const EmployeeDashboard = () => {
                     onChange={handleFileChange}
                   />
                 </label>
-
-                <Button variant="outline" onClick={handleFastOcrDemo} className="flex items-center gap-1.5 font-bold shadow-sm">
-                  <FileText className="h-4 w-4" />
-                  Simulate Fast Scan Demo
-                </Button>
               </div>
             </div>
           </Card>

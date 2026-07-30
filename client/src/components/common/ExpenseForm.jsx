@@ -85,24 +85,23 @@ const ExpenseForm = ({
         financeComments: data.financeComments || '',
       });
       setReceiptUrl(data.receiptUrl || null);
-      setFileName(data.fileName || (data.receiptUrl ? 'receipt_document.png' : ''));
-      setFileType(data.fileType || (data.receiptUrl ? 'image/png' : ''));
-      setFileSize(data.fileSize || (data.receiptUrl ? 154200 : null));
-      setUploadDate(data.uploadDate || (data.receiptUrl ? new Date().toISOString() : null));
+      setFileName(data.fileName || '');
+      setFileType(data.fileType || '');
+      setFileSize(data.fileSize || null);
+      setUploadDate(data.uploadDate || null);
     } else {
-      // Setup empty form defaults for Create
       setFormData({
         merchant: '',
         invoiceNumber: '',
-        invoiceDate: new Date().toISOString().split('T')[0],
+        invoiceDate: '',
         submissionDate: '',
         amount: '',
         currency: 'INR',
         tax: '',
         category: '',
-        department: 'Engineering',
-        costCenter: 'CC-ENG-402',
-        projectCode: 'PROJ-AIR-5G',
+        department: user?.department || '',
+        costCenter: user?.costCenter || '',
+        projectCode: '',
         expenseType: 'Reimbursable',
         description: '',
         employeeNotes: '',
@@ -171,16 +170,16 @@ const ExpenseForm = ({
         setFileSize(file.size);
         setUploadDate(new Date().toISOString());
 
-        // Preload placeholders to simulate future OCR extraction fields
-        if (mode === 'Create' && !formData.merchant) {
+        if (mode === 'Create') {
           setFormData((prev) => ({
             ...prev,
-            merchant: extracted.vendor || (file.name.toLowerCase().includes('airtel') ? 'Airtel India Broadband' : 'Global Telecom Merchant'),
-            invoiceNumber: extracted.invoiceNumber || `INV-${Math.floor(Math.random() * 900000) + 100000}`,
-            amount: extracted.amount || '1499',
-            tax: extracted.taxAmount || '228.66',
-            category: 'Internet & Communications',
-            description: `Auto-extracted receipt details for file ${file.name}.`,
+            merchant: extracted.vendor || '',
+            invoiceNumber: extracted.invoiceNumber || '',
+            amount: extracted.amount || '',
+            tax: extracted.taxAmount || '',
+            invoiceDate: extracted.date ? new Date(extracted.date).toISOString().split('T')[0] : '',
+            currency: extracted.currency || 'INR',
+            description: extracted.description || '',
           }));
         }
       } catch (err) {
@@ -282,7 +281,7 @@ const ExpenseForm = ({
             </div>
             {mode !== 'Create' && (
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-3 mt-0.5 font-sans">
-                Filed By: {data?.employeeName || user?.name || 'Unknown Employee'}
+                Filed By: {data?.employeeName || data?.employee || (userRole === 'Employee' ? user?.name : 'Unknown Employee')}
               </span>
             )}
           </div>

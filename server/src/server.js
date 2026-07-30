@@ -34,6 +34,7 @@ connectDB();
 // 2. Global Security and Utility Middlewares
 app.use(helmet({
   contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false,
 }));
 app.use(cors({
   origin: '*', // TODO: Restrict in production

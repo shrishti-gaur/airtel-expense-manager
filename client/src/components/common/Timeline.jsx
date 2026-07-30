@@ -32,13 +32,13 @@ const Timeline = ({ status = 'Draft' }) => {
       </p>
 
       {/* Horizontal timeline line container */}
-      <div className="relative flex items-center justify-between px-2">
-        <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-slate-100" />
+      <div className="relative flex items-start justify-between px-2">
+        <div className="absolute left-4 right-4 top-3.5 h-0.5 bg-slate-100" />
         <div
-          className={`absolute left-0 top-1/2 h-0.5 -translate-y-1/2 transition-all duration-500 ${
+          className={`absolute left-4 top-3.5 h-0.5 transition-all duration-500 ${
             isReturned ? 'bg-amber-400' : isRejected ? 'bg-rose-500' : 'bg-red-500'
           }`}
-          style={{ width: `${(activeIndex / (steps.length - 1)) * 100}%` }}
+          style={{ width: `${(activeIndex / (steps.length - 1)) * 92}%` }}
         />
 
         {steps.map((step, idx) => {
@@ -70,11 +70,11 @@ const Timeline = ({ status = 'Draft' }) => {
           if (step.key === 'Settled' && status === 'Reimbursed') labelText = 'Approved & Synced to Oracle';
 
           return (
-            <div key={step.key} className="relative z-10 flex flex-col items-center">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition-all ${circleClass}`}>
+            <div key={step.key} className="relative z-10 flex flex-col items-center flex-1 min-w-0">
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition-all shrink-0 ${circleClass}`}>
                 {isCompleted ? '✓' : idx + 1}
               </div>
-              <span className={`absolute top-8 whitespace-nowrap text-[10px] font-bold ${
+              <span className={`mt-2 text-center text-[9px] sm:text-[10px] font-bold leading-tight px-0.5 break-words max-w-[65px] sm:max-w-[100px] ${
                 isActive ? 'text-slate-800 font-extrabold font-sans' : 'text-slate-400 font-sans'
               }`}>
                 {labelText}
@@ -83,7 +83,6 @@ const Timeline = ({ status = 'Draft' }) => {
           );
         })}
       </div>
-      <div className="h-4" /> {/* spacing divider */}
     </div>
   );
 };

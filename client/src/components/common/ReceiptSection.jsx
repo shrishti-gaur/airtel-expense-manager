@@ -36,13 +36,13 @@ const ReceiptSection = ({
   const isPdf = !receiptUrl ? false : (
     (fileType && fileType.includes('pdf')) || 
     /\.pdf$/i.test(fileName) || 
-    /\.pdf$/i.test(receiptUrl)
+    /\.pdf(\?.*)?$/i.test(receiptUrl)
   );
 
   const isDocx = !receiptUrl ? false : (
     (fileType && (fileType.includes('word') || fileType.includes('officedocument'))) || 
     /\.(docx|doc)$/i.test(fileName) || 
-    /\.(docx|doc)$/i.test(receiptUrl)
+    /\.(docx|doc)(\?.*)?$/i.test(receiptUrl)
   );
 
   // Detect file type
@@ -50,6 +50,7 @@ const ReceiptSection = ({
     (fileType && fileType.includes('image')) || 
     receiptUrl.startsWith('data:image') ||
     /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileName) ||
+    /\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i.test(receiptUrl) ||
     (!fileType && !isPdf && !isDocx)
   );
 

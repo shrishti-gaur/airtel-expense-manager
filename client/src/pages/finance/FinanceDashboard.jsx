@@ -104,7 +104,7 @@ const FinanceDashboard = () => {
                 .toISOString()
                 .replace('T', ' ')
                 .substring(0, 16),
-              voucher: claim.oracleRefId || `ORACLE-EXP-MOCK-${claim.id}`,
+              voucher: claim.oracleRefId || claim.id,
               claimId: claim.id
             };
           });
@@ -169,7 +169,7 @@ const FinanceDashboard = () => {
               .toISOString()
               .replace('T', ' ')
               .substring(0, 16),
-            voucher: claim.oracleRefId || `ORACLE-EXP-MOCK-${claim.id}`,
+            voucher: claim.oracleRefId || claim.id,
             claimId: claim.id
           };
         });
@@ -313,7 +313,7 @@ const FinanceDashboard = () => {
                       <td className="py-4 px-4 font-semibold text-slate-500 font-mono">{claim.id}</td>
                       <td className="py-4 px-4">
                         <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
-                          {claim.employee || claim.employeeName}
+                          {claim.employeeName || claim.employee || 'Unknown Employee'}
                         </div>
                       </td>
                       <td className="py-4 px-4 text-left">
@@ -591,7 +591,7 @@ const FinanceDashboard = () => {
                     <td className="py-4 px-4 font-semibold text-slate-500 font-mono">{claim.id}</td>
                     <td className="py-4 px-4">
                       <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
-                        {claim.employee || claim.employeeName}
+                        {claim.employeeName || claim.employee || 'Unknown Employee'}
                       </div>
                     </td>
                     <td className="py-4 px-4 text-left">
