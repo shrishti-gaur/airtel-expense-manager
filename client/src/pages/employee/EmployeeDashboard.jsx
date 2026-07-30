@@ -189,7 +189,7 @@ const EmployeeDashboard = () => {
       formDataPayload.append('receipt', file);
 
       await runWithLoading(sequence, async () => {
-        const res = await api.post('/ocr/scan', formDataPayload, {
+        const res = await api.post('/ocr/process', formDataPayload, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 

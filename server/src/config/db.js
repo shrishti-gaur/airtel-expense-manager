@@ -6,7 +6,7 @@ export const connectDB = async () => {
   try {
     const conn = await mongoose.connect(config.mongodbUri);
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
-    
+
     // Seed initial database values
     await seedDB();
   } catch (error) {

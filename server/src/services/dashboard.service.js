@@ -20,45 +20,47 @@ export class DashboardService {
           $group: {
             _id: null,
             totalSubmittedClaims: {
-              $sum: { $cond: [{ $ne: ['$status', 'Draft'] }, 1, 0] }
+              $sum: { $cond: [{ $ne: ['$status', 'Draft'] }, 1, 0] },
             },
             totalSubmittedAmount: {
-              $sum: { $cond: [{ $ne: ['$status', 'Draft'] }, '$amount', 0] }
+              $sum: { $cond: [{ $ne: ['$status', 'Draft'] }, '$amount', 0] },
             },
             pendingAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'Submitted'] }, '$amount', 0] }
+              $sum: { $cond: [{ $eq: ['$status', 'Submitted'] }, '$amount', 0] },
             },
             approvedAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, '$amount', 0] }
-            }
-          }
-        }
+              $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, '$amount', 0] },
+            },
+          },
+        },
       ]);
 
       const result = stats[0] || {
         totalSubmittedClaims: 0,
         totalSubmittedAmount: 0,
         pendingAmount: 0,
-        approvedAmount: 0
+        approvedAmount: 0,
       };
 
       // Fetch recent activity logs
-      const rawLogs = await ActivityLog.find({ userId })
-        .sort({ timestamp: -1 })
-        .limit(5);
+      const rawLogs = await ActivityLog.find({ userId }).sort({ timestamp: -1 }).limit(5);
 
-      const recentActivity = rawLogs.map(log => ({
+      const recentActivity = rawLogs.map((log) => ({
         type: log.action,
         title: log.details || 'Expense Action',
         status: log.action.replace('CLAIM_', ''),
         amount: log.amount || 0,
-        date: log.timestamp
+        date: log.timestamp,
       }));
 
-      console.log('[Trace Log - Service] Compiled Employee dashboard stats:', result, `Recent logs count: ${recentActivity.length}`);
+      console.log(
+        '[Trace Log - Service] Compiled Employee dashboard stats:',
+        result,
+        `Recent logs count: ${recentActivity.length}`
+      );
       return {
         ...result,
-        recentActivity
+        recentActivity,
       };
     }
 
@@ -70,10 +72,10 @@ export class DashboardService {
           $group: {
             _id: null,
             totalPendingReviews: {
-              $sum: { $cond: [{ $eq: ['$status', 'Submitted'] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ['$status', 'Submitted'] }, 1, 0] },
             },
             totalTeamSubmittedAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'Submitted'] }, '$amount', 0] }
+              $sum: { $cond: [{ $eq: ['$status', 'Submitted'] }, '$amount', 0] },
             },
             totalApprovedThisMonth: {
               $sum: {
@@ -81,44 +83,48 @@ export class DashboardService {
                   {
                     $and: [
                       { $in: ['$status', ['Approved', 'Reimbursed']] },
-                      { $gte: ['$updatedAt', startOfMonth] }
-                    ]
+                      { $gte: ['$updatedAt', startOfMonth] },
+                    ],
                   },
                   '$amount',
-                  0
-                ]
-              }
-            }
-          }
-        }
+                  0,
+                ],
+              },
+            },
+          },
+        },
       ]);
 
       const result = stats[0] || {
         totalPendingReviews: 0,
         totalTeamSubmittedAmount: 0,
-        totalApprovedThisMonth: 0
+        totalApprovedThisMonth: 0,
       };
 
       // Fetch pending requests for dashboard display
       const pendingClaims = await ExpenseClaim.find({
         department: { $in: ['Engineering', 'Sales'] },
-        status: 'Submitted'
+        status: 'Submitted',
       })
         .sort({ createdAt: -1 })
         .limit(5);
 
-      const recentRequests = pendingClaims.map(claim => ({
+      const recentRequests = pendingClaims.map((claim) => ({
         id: claim.id,
         userName: claim.employeeName,
         amount: claim.amount,
         category: claim.category,
-        date: claim.submissionDate || claim.createdAt
+        date: claim.submissionDate || claim.createdAt,
       }));
 
-      console.log('[Trace Log - Service] Compiled Manager dashboard stats:', result, `Recent requests count: ${recentRequests.length}`);
+      console.log(
+        '[Trace Log - Service] Compiled Manager dashboard stats:',
+        result,
+        `Recent requests count: ${recentRequests.length}`
+      );
       return {
         ...result,
-        recentRequests
+        recentRequests,
       };
     }
 
@@ -134,19 +140,19 @@ export class DashboardService {
                   {
                     $and: [
                       { $eq: ['$status', 'Reimbursed'] },
-                      { $gte: ['$updatedAt', startOfMonth] }
-                    ]
+                      { $gte: ['$updatedAt', startOfMonth] },
+                    ],
                   },
                   '$amount',
-                  0
-                ]
-              }
+                  0,
+                ],
+              },
             },
             pendingPayoutAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, '$amount', 0] }
+              $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, '$amount', 0] },
             },
             unprocessedClaimsCount: {
-              $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ['$status', 'Approved'] }, 1, 0] },
             },
             auditAlertsCount: {
               $sum: {
@@ -154,23 +160,23 @@ export class DashboardService {
                   {
                     $and: [
                       { $lt: ['$ocrOverallScore', 80] },
-                      { $in: ['$status', ['Submitted', 'Approved']] }
-                    ]
+                      { $in: ['$status', ['Submitted', 'Approved']] },
+                    ],
                   },
                   1,
-                  0
-                ]
-              }
-            }
-          }
-        }
+                  0,
+                ],
+              },
+            },
+          },
+        },
       ]);
 
       const result = stats[0] || {
         totalDisbursedThisMonth: 0,
         pendingPayoutAmount: 0,
         unprocessedClaimsCount: 0,
-        auditAlertsCount: 0
+        auditAlertsCount: 0,
       };
 
       // Build payout timeline (last 3 months)
@@ -179,22 +185,35 @@ export class DashboardService {
         {
           $match: {
             status: 'Reimbursed',
-            updatedAt: { $gte: new Date(`${currentYear}-01-01`) }
-          }
+            updatedAt: { $gte: new Date(`${currentYear}-01-01`) },
+          },
         },
         {
           $group: {
             _id: { $month: '$updatedAt' },
-            amount: { $sum: '$amount' }
-          }
+            amount: { $sum: '$amount' },
+          },
         },
-        { $sort: { '_id': 1 } }
+        { $sort: { _id: 1 } },
       ]);
 
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const payoutsTimeline = timelineAgg.map(item => ({
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      const payoutsTimeline = timelineAgg.map((item) => ({
         month: monthNames[item._id - 1],
-        amount: item.amount
+        amount: item.amount,
       }));
 
       // If timeline is empty, fill with default months matching system defaults
@@ -206,10 +225,14 @@ export class DashboardService {
         );
       }
 
-      console.log('[Trace Log - Service] Compiled Finance dashboard stats:', result, `Timeline entries: ${payoutsTimeline.length}`);
+      console.log(
+        '[Trace Log - Service] Compiled Finance dashboard stats:',
+        result,
+        `Timeline entries: ${payoutsTimeline.length}`
+      );
       return {
         ...result,
-        payoutsTimeline
+        payoutsTimeline,
       };
     }
 

@@ -14,13 +14,13 @@ export class NotificationService {
    */
   async markAsRead(notificationId, userId) {
     console.log(`[Notification Service] User ${userId} marking read: ${notificationId}`);
-    
+
     const notif = await Notification.findOneAndUpdate(
       { id: notificationId, userId },
       { read: true },
       { new: true }
     );
-    
+
     if (!notif) {
       throw new Error(`Notification not found with ID ${notificationId}`);
     }
@@ -68,7 +68,7 @@ export class NotificationService {
       description: data.description,
       type: data.type || 'info',
       read: false,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
     return await newNotif.save();
   }

@@ -19,7 +19,12 @@ export const requireAuth = async (req, res, next) => {
     req.user = sessionUser;
     next();
   } catch (error) {
-    return sendError(res, 'Token validation failed', { code: 'INVALID_TOKEN', details: error.message }, 403);
+    return sendError(
+      res,
+      'Token validation failed',
+      { code: 'INVALID_TOKEN', details: error.message },
+      403
+    );
   }
 };
 

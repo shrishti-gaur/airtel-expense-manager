@@ -7,9 +7,13 @@ export class ManagerController {
    */
   async getPendingClaims(req, res, next) {
     try {
-      console.log(`[Trace Log - Controller] GET /api/v1/manager/pending for manager ${req.user.id}`);
+      console.log(
+        `[Trace Log - Controller] GET /api/v1/manager/pending for manager ${req.user.id}`
+      );
       const claims = await managerService.getClaimsPendingApproval(req.user.id);
-      console.log(`[Trace Log - Controller] GET /api/v1/manager/pending success. Found ${claims.length} claims.`);
+      console.log(
+        `[Trace Log - Controller] GET /api/v1/manager/pending success. Found ${claims.length} claims.`
+      );
       return sendSuccess(res, 'Pending claims retrieved successfully', { claims });
     } catch (error) {
       console.error('[Trace Log - Controller] GET /api/v1/manager/pending error:', error);
@@ -24,12 +28,19 @@ export class ManagerController {
     try {
       const { id } = req.params;
       const { status, remarks } = req.body;
-      console.log(`[Trace Log - Controller] POST /api/v1/manager/review/${id} for manager ${req.user.id}. Action: ${status}, Remarks: ${remarks}`);
+      console.log(
+        `[Trace Log - Controller] POST /api/v1/manager/review/${id} for manager ${req.user.id}. Action: ${status}, Remarks: ${remarks}`
+      );
       const reviewResult = await managerService.reviewClaim(id, req.user.id, status, remarks);
-      console.log(`[Trace Log - Controller] POST /api/v1/manager/review/${id} success. Final status: ${reviewResult.status}`);
+      console.log(
+        `[Trace Log - Controller] POST /api/v1/manager/review/${id} success. Final status: ${reviewResult.status}`
+      );
       return sendSuccess(res, `Claim has been successfully ${status.toLowerCase()}`, reviewResult);
     } catch (error) {
-      console.error(`[Trace Log - Controller] POST /api/v1/manager/review/${req.params.id} error:`, error);
+      console.error(
+        `[Trace Log - Controller] POST /api/v1/manager/review/${req.params.id} error:`,
+        error
+      );
       next(error);
     }
   }

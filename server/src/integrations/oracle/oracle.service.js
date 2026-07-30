@@ -1,8 +1,8 @@
 /**
  * Future-Ready Oracle Database Integration Service.
  *
- * This wrapper defines the adapter interface. In the future, the MongoDB services 
- * can shift queries to this adapter. Application routes and controllers do not 
+ * This wrapper defines the adapter interface. In the future, the MongoDB services
+ * can shift queries to this adapter. Application routes and controllers do not
  * need to be altered since business services abstract the database details.
  */
 

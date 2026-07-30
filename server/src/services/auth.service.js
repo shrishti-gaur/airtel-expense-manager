@@ -36,7 +36,7 @@ export class AuthService {
    */
   async verifySession(token) {
     console.log(`[Auth Service] Validating session token: ${token}`);
-    
+
     if (token.startsWith('mock-')) {
       const parts = token.split('-');
       // Support both legacy "mock-employee-token" and new "mock-employee-token-emp_123"
@@ -46,7 +46,7 @@ export class AuthService {
         else if (token === 'mock-manager-token') employeeId = 'mgr_456';
         else if (token === 'mock-finance-token') employeeId = 'fin_789';
       }
-      
+
       if (employeeId) {
         const employee = await Employee.findOne({ employeeId });
         if (employee) {
@@ -60,7 +60,7 @@ export class AuthService {
         }
       }
     }
-    
+
     return { id: 'user_gen', role: 'Employee', name: 'General User' };
   }
 }

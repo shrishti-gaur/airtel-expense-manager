@@ -157,7 +157,7 @@ const ExpenseForm = ({
         const formDataPayload = new FormData();
         formDataPayload.append('receipt', file);
 
-        const res = await api.post('/ocr/scan', formDataPayload, {
+        const res = await api.post('/ocr/process', formDataPayload, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 

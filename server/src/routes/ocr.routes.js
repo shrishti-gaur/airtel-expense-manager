@@ -11,5 +11,6 @@ router.use(requireAuth);
 
 // Handles multipart form-data upload for 'receipt' field
 router.post('/scan', upload.single('receipt'), ocrUploadValidator, ocrController.scanReceipt);
+router.post('/process', upload.single('receipt'), ocrUploadValidator, ocrController.scanReceipt);
 
 export default router;

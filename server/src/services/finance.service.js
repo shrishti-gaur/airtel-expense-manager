@@ -10,9 +10,9 @@ export class FinanceService {
    */
   async getAuditLogs(filters = {}) {
     console.log('[Finance Service] Retrieving system claims for audit with filters:', filters);
-    
+
     const query = { status: { $ne: 'Draft' } };
-    
+
     if (filters.status) {
       query.status = filters.status;
     }
@@ -56,7 +56,9 @@ export class FinanceService {
       }
 
       claim.status = targetStatus;
-      claim.financeComments = comments || (action === 'PROCESS_PAYMENT' ? 'Payment settled.' : 'Claim rejected by Finance.');
+      claim.financeComments =
+        comments ||
+        (action === 'PROCESS_PAYMENT' ? 'Payment settled.' : 'Claim rejected by Finance.');
 
       let syncReceipt = null;
 
@@ -65,7 +67,7 @@ export class FinanceService {
         const processedPayload = {
           id: claim.id,
           status: 'PROCESSED',
-          amount: claim.amount
+          amount: claim.amount,
         };
         syncReceipt = await oracleService.syncExpenseClaim(processedPayload);
         claim.oracleRefId = syncReceipt.oracleRefId;
@@ -74,12 +76,16 @@ export class FinanceService {
       claim.history.push({
         action: historyAction,
         user: financeId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
-      console.log(`[Trace Log - Service] Finance ${financeId} saving processed claim ${claimId} with status ${claim.status} to MongoDB Atlas...`);
+      console.log(
+        `[Trace Log - Service] Finance ${financeId} saving processed claim ${claimId} with status ${claim.status} to MongoDB Atlas...`
+      );
       const updatedClaim = await claim.save();
-      console.log(`[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`);
+      console.log(
+        `[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`
+      );
 
       // Log Activity
       await ActivityLog.create({
@@ -88,7 +94,7 @@ export class FinanceService {
         action: activityAction,
         claimId,
         amount: updatedClaim.amount,
-        details: `Claim processed and ${targetStatus.toLowerCase()} by ${financeName}.`
+        details: `Claim processed and ${targetStatus.toLowerCase()} by ${financeName}.`,
       });
 
       // Notify employee
@@ -97,11 +103,12 @@ export class FinanceService {
         id: notificationId,
         userId: updatedClaim.employeeId,
         title: action === 'PROCESS_PAYMENT' ? 'Expense Reimbursed' : 'Expense Rejected by Finance',
-        description: action === 'PROCESS_PAYMENT'
-          ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been reimbursed. Sync key: ${claim.oracleRefId}`
-          : `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been rejected by Finance. Remarks: ${claim.financeComments}`,
+        description:
+          action === 'PROCESS_PAYMENT'
+            ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been reimbursed. Sync key: ${claim.oracleRefId}`
+            : `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been rejected by Finance. Remarks: ${claim.financeComments}`,
         type: action === 'PROCESS_PAYMENT' ? 'success' : 'error',
-        read: false
+        read: false,
       });
 
       results.push({

@@ -6,8 +6,6 @@ export const loginValidator = [
     .isEmail()
     .withMessage('A valid corporate email address is required')
     .normalizeEmail(),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
   validateRequest,
 ];

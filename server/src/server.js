@@ -32,15 +32,19 @@ const app = express();
 connectDB();
 
 // 2. Global Security and Utility Middlewares
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginResourcePolicy: false,
-}));
-app.use(cors({
-  origin: '*', // TODO: Restrict in production
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: false,
+  })
+);
+app.use(
+  cors({
+    origin: '*', // TODO: Restrict in production
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

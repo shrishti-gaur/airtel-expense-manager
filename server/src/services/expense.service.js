@@ -9,12 +9,12 @@ export class ExpenseService {
    */
   async createClaim(userId, claimData) {
     console.log(`[Expense Service] Creating claim for user ${userId}:`, claimData);
-    
+
     // Fetch employee name for verification and completeness
     const employee = await Employee.findOne({ employeeId: userId });
     const empName = employee ? employee.name : 'Unknown Employee';
-    const empDept = employee ? employee.department : (claimData.department || 'Engineering');
-    const empCostCenter = employee ? employee.costCenter : (claimData.costCenter || 'CC-ENG-402');
+    const empDept = employee ? employee.department : claimData.department || 'Engineering';
+    const empCostCenter = employee ? employee.costCenter : claimData.costCenter || 'CC-ENG-402';
 
     const claimId = claimData.id || `EXP-${Date.now()}`;
     const status = claimData.status || 'Draft';
@@ -26,8 +26,17 @@ export class ExpenseService {
       title: claimData.title || claimData.description?.split('.')[0] || 'Expense Claim',
       status,
       amount: Number(claimData.amount),
-      invoiceDate: claimData.invoiceDate ? new Date(claimData.invoiceDate) : (claimData.date ? new Date(claimData.date) : new Date()),
-      submissionDate: status === 'Submitted' ? new Date() : (claimData.submissionDate ? new Date(claimData.submissionDate) : null),
+      invoiceDate: claimData.invoiceDate
+        ? new Date(claimData.invoiceDate)
+        : claimData.date
+          ? new Date(claimData.date)
+          : new Date(),
+      submissionDate:
+        status === 'Submitted'
+          ? new Date()
+          : claimData.submissionDate
+            ? new Date(claimData.submissionDate)
+            : null,
       merchant: claimData.merchant || '',
       invoiceNumber: claimData.invoiceNumber || '',
       currency: claimData.currency || 'INR',
@@ -52,14 +61,18 @@ export class ExpenseService {
         {
           action: status === 'Submitted' ? 'SUBMITTED' : 'DRAFT_CREATED',
           user: userId,
-          timestamp: new Date()
-        }
-      ]
+          timestamp: new Date(),
+        },
+      ],
     });
 
-    console.log(`[Trace Log - Service] Attempting to save new claim ${claimId} to MongoDB Atlas...`);
+    console.log(
+      `[Trace Log - Service] Attempting to save new claim ${claimId} to MongoDB Atlas...`
+    );
     const savedClaim = await newClaim.save();
-    console.log(`[Trace Log - Service] Claim ${claimId} successfully saved. Document ID: ${savedClaim._id}, Status: ${savedClaim.status}`);
+    console.log(
+      `[Trace Log - Service] Claim ${claimId} successfully saved. Document ID: ${savedClaim._id}, Status: ${savedClaim.status}`
+    );
 
     // Create Activity Log
     await ActivityLog.create({
@@ -68,7 +81,7 @@ export class ExpenseService {
       action: status === 'Submitted' ? 'CLAIM_SUBMITTED' : 'DRAFT_SAVED',
       claimId,
       amount: savedClaim.amount,
-      details: savedClaim.title
+      details: savedClaim.title,
     });
 
     // Create Notification if submitted
@@ -80,7 +93,7 @@ export class ExpenseService {
         title: 'New Claim Submitted',
         description: `New claim ${claimId} for ₹${savedClaim.amount.toLocaleString('en-IN')} from ${empName} requires your review.`,
         type: 'info',
-        read: false
+        read: false,
       });
     }
 
@@ -107,22 +120,26 @@ export class ExpenseService {
     claim.amount = claimData.amount !== undefined ? Number(claimData.amount) : claim.amount;
     claim.invoiceDate = claimData.invoiceDate ? new Date(claimData.invoiceDate) : claim.invoiceDate;
     claim.merchant = claimData.merchant !== undefined ? claimData.merchant : claim.merchant;
-    claim.invoiceNumber = claimData.invoiceNumber !== undefined ? claimData.invoiceNumber : claim.invoiceNumber;
+    claim.invoiceNumber =
+      claimData.invoiceNumber !== undefined ? claimData.invoiceNumber : claim.invoiceNumber;
     claim.currency = claimData.currency || claim.currency;
     claim.tax = claimData.tax !== undefined ? Number(claimData.tax) : claim.tax;
     claim.category = claimData.category || claim.category;
-    claim.projectCode = claimData.projectCode !== undefined ? claimData.projectCode : claim.projectCode;
+    claim.projectCode =
+      claimData.projectCode !== undefined ? claimData.projectCode : claim.projectCode;
     claim.expenseType = claimData.expenseType || claim.expenseType;
     claim.description = claimData.description || claim.description;
-    claim.employeeNotes = claimData.employeeNotes !== undefined ? claimData.employeeNotes : claim.employeeNotes;
-    
+    claim.employeeNotes =
+      claimData.employeeNotes !== undefined ? claimData.employeeNotes : claim.employeeNotes;
+
     if (claimData.receiptUrl) claim.receiptUrl = claimData.receiptUrl;
     if (claimData.fileName) claim.fileName = claimData.fileName;
     if (claimData.fileType) claim.fileType = claimData.fileType;
     if (claimData.fileSize) claim.fileSize = Number(claimData.fileSize);
-    
+
     // OCR fields updates if any
-    if (claimData.ocrOverallScore !== undefined) claim.ocrOverallScore = Number(claimData.ocrOverallScore);
+    if (claimData.ocrOverallScore !== undefined)
+      claim.ocrOverallScore = Number(claimData.ocrOverallScore);
     if (claimData.ocrTimestamp) claim.ocrTimestamp = new Date(claimData.ocrTimestamp);
     if (claimData.ocrConfidence) claim.ocrConfidence = claimData.ocrConfidence;
 
@@ -133,28 +150,33 @@ export class ExpenseService {
       claim.history.push({
         action: 'SUBMITTED',
         user: userId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     } else {
       claim.history.push({
         action: nextStatus === 'Draft' ? 'DRAFT_UPDATED' : 'CLAIM_UPDATED',
         user: userId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
     console.log(`[Trace Log - Service] Attempting to update claim ${claimId} in MongoDB Atlas...`);
     const updatedClaim = await claim.save();
-    console.log(`[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`);
+    console.log(
+      `[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`
+    );
 
     // Log Activity
     await ActivityLog.create({
       userId,
       userName: claim.employeeName,
-      action: nextStatus === 'Submitted' && originalStatus !== 'Submitted' ? 'CLAIM_SUBMITTED' : 'DRAFT_UPDATED',
+      action:
+        nextStatus === 'Submitted' && originalStatus !== 'Submitted'
+          ? 'CLAIM_SUBMITTED'
+          : 'DRAFT_UPDATED',
       claimId,
       amount: updatedClaim.amount,
-      details: updatedClaim.title
+      details: updatedClaim.title,
     });
 
     // Notify Manager if submitted
@@ -166,7 +188,7 @@ export class ExpenseService {
         title: 'New Claim Submitted',
         description: `New claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} from ${claim.employeeName} requires your review.`,
         type: 'info',
-        read: false
+        read: false,
       });
     }
 
@@ -179,7 +201,9 @@ export class ExpenseService {
   async getClaimsByUser(userId) {
     console.log(`[Trace Log - Service] Fetching claims from MongoDB for user ${userId}...`);
     const results = await ExpenseClaim.find({ employeeId: userId }).sort({ createdAt: -1 });
-    console.log(`[Trace Log - Service] Found ${results.length} claims in MongoDB for user ${userId}`);
+    console.log(
+      `[Trace Log - Service] Found ${results.length} claims in MongoDB for user ${userId}`
+    );
     return results;
   }
 
@@ -193,7 +217,9 @@ export class ExpenseService {
       console.error(`[Trace Log - Service] Claim ${claimId} not found in MongoDB`);
       throw new Error(`Claim not found with ID: ${claimId}`);
     }
-    console.log(`[Trace Log - Service] Found claim ${claimId} in MongoDB. Document ID: ${claim._id}, Status: ${claim.status}`);
+    console.log(
+      `[Trace Log - Service] Found claim ${claimId} in MongoDB. Document ID: ${claim._id}, Status: ${claim.status}`
+    );
     return claim;
   }
 }

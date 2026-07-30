@@ -13,7 +13,7 @@ export class AuthController {
       const { email, password } = req.body;
       // TODO: Perform active LDAP or Microsoft Entra ID verify.
       const authData = await authService.authenticateUser(email, password);
-      
+
       return sendSuccess(res, 'Authentication successful', authData);
     } catch (error) {
       return sendError(res, 'Authentication failed', error.message, 401);

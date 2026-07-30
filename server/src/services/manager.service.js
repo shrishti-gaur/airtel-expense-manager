@@ -9,12 +9,12 @@ export class ManagerService {
    */
   async getClaimsPendingApproval(managerId) {
     console.log(`[Manager Service] Fetching pending claims for manager: ${managerId}`);
-    
+
     // Find the manager's profile
     const manager = await Employee.findOne({ employeeId: managerId });
-    
+
     const query = {};
-    
+
     // Restrict manager to Engineering and Sales department claims (matching mock data filters)
     if (manager) {
       query.department = { $in: ['Engineering', 'Sales'] };
@@ -30,7 +30,9 @@ export class ManagerService {
    * Approve or return a claim
    */
   async reviewClaim(claimId, managerId, status, remarks) {
-    console.log(`[Manager Service] Reviewing claim ${claimId} by manager ${managerId}. Outcome: ${status}`);
+    console.log(
+      `[Manager Service] Reviewing claim ${claimId} by manager ${managerId}. Outcome: ${status}`
+    );
 
     const claim = await ExpenseClaim.findOne({ id: claimId });
     if (!claim) {
@@ -44,16 +46,20 @@ export class ManagerService {
 
     claim.status = status;
     claim.managerComments = remarks || '';
-    
+
     claim.history.push({
       action: status === 'Approved' ? 'APPROVED' : 'RETURNED',
       user: managerId,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
 
-    console.log(`[Trace Log - Service] Manager ${managerId} saving reviewed claim ${claimId} with status ${status} to MongoDB Atlas...`);
+    console.log(
+      `[Trace Log - Service] Manager ${managerId} saving reviewed claim ${claimId} with status ${status} to MongoDB Atlas...`
+    );
     const updatedClaim = await claim.save();
-    console.log(`[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`);
+    console.log(
+      `[Trace Log - Service] Claim ${claimId} successfully updated. Document ID: ${updatedClaim._id}, Status: ${updatedClaim.status}`
+    );
 
     // Log Activity
     const managerEmp = await Employee.findOne({ employeeId: managerId });
@@ -64,7 +70,7 @@ export class ManagerService {
       action: status === 'Approved' ? 'CLAIM_APPROVED' : 'CLAIM_RETURNED',
       claimId,
       amount: updatedClaim.amount,
-      details: `Claim reviewed and ${status.toLowerCase()} by ${managerName}.`
+      details: `Claim reviewed and ${status.toLowerCase()} by ${managerName}.`,
     });
 
     // Notify the Employee
@@ -72,12 +78,14 @@ export class ManagerService {
     await Notification.create({
       id: notificationId,
       userId: updatedClaim.employeeId,
-      title: status === 'Approved' ? 'Expense Approved by Manager' : 'Expense Returned for Correction',
-      description: status === 'Approved'
-        ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been approved by ${managerName} and forwarded to Finance.`
-        : `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been returned by ${managerName} for correction. Reason: ${remarks}`,
+      title:
+        status === 'Approved' ? 'Expense Approved by Manager' : 'Expense Returned for Correction',
+      description:
+        status === 'Approved'
+          ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been approved by ${managerName} and forwarded to Finance.`
+          : `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been returned by ${managerName} for correction. Reason: ${remarks}`,
       type: status === 'Approved' ? 'success' : 'warning',
-      read: false
+      read: false,
     });
 
     return updatedClaim;

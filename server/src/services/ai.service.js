@@ -20,7 +20,11 @@ export class AiService {
         riskScore: 0.08,
         rulesChecked: [
           { ruleId: 'EXP_LMT_CHECK', passed: true, reason: 'Amount matches category allowances' },
-          { ruleId: 'MERCHANT_CHECK', passed: true, reason: 'Merchant is a recognized telecom brand' },
+          {
+            ruleId: 'MERCHANT_CHECK',
+            passed: true,
+            reason: 'Merchant is a recognized telecom brand',
+          },
         ],
       },
       tags: ['telecom', 'airtel', 'monthly-subscription'],
