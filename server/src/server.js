@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execFile } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,6 +94,16 @@ app.use(errorHandler);
 // 5. Spin up listener
 const server = app.listen(config.port, () => {
   console.log(`[Server] running in [${config.nodeEnv}] mode on port: ${config.port}`);
+  
+  // Log Tesseract version to verify installation
+  execFile(config.tesseractPath, ['--version'], (err, stdout, stderr) => {
+    if (err) {
+      console.error(`[Server] [OCR Init Warning] Failed to detect Tesseract executable at path: ${config.tesseractPath}. Error: ${err.message}`);
+    } else {
+      const firstLine = stdout.split('\n')[0] || '';
+      console.log(`[Server] [OCR Init] Tesseract detected successfully: ${firstLine}`);
+    }
+  });
 });
 
 export default server;

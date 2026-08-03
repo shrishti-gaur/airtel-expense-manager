@@ -20,4 +20,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET,
   nodeEnv: process.env.NODE_ENV || 'development',
   geminiApiKey: process.env.GEMINI_API_KEY,
+  tesseractPath: process.env.TESSERACT_PATH || 'tesseract',
+  tessdataPrefix: process.env.TESSDATA_PREFIX || '/opt/homebrew/share/tessdata/',
+  ocrLang: process.env.OCR_LANG || 'eng',
 };
