@@ -47,6 +47,8 @@ const ExpenseClaimSchema = new mongoose.Schema(
     managerComments: { type: String },
     financeComments: { type: String },
     oracleRefId: { type: String }, // Populated when disbursed and synced
+    receiptHash: { type: String },
+    invoiceFingerprint: { type: String },
     history: [
       {
         action: { type: String, required: true },

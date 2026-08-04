@@ -2,6 +2,7 @@ import { ExpenseClaim } from '../models/ExpenseClaim.js';
 import { Employee } from '../models/Employee.js';
 import { Notification } from '../models/Notification.js';
 import { ActivityLog } from '../models/ActivityLog.js';
+import crypto from 'crypto';
 
 export class ExpenseService {
   /**
@@ -9,6 +10,86 @@ export class ExpenseService {
    */
   async createClaim(userId, claimData) {
     console.log(`[Expense Service] Creating claim for user ${userId}:`, claimData);
+
+    // 0. Duplicate checks before claim creation
+    const receiptHash = claimData.receiptHash;
+    let invoiceFingerprint = claimData.invoiceFingerprint;
+
+    // Dynamically calculate invoiceFingerprint if not provided but values exist
+    if (!invoiceFingerprint) {
+      const normMerchant = String(claimData.merchant || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      const normInvoiceNo = String(claimData.invoiceNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      
+      let normDate = '';
+      const invoiceDateVal = claimData.invoiceDate || claimData.date;
+      if (invoiceDateVal) {
+        try {
+          const d = new Date(invoiceDateVal);
+          if (!isNaN(d.getTime())) {
+            normDate = d.toISOString().split('T')[0];
+          } else {
+            normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          }
+        } catch (e) {
+          normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        }
+      }
+
+      const normAmount = claimData.amount !== undefined && claimData.amount !== null ? Number(claimData.amount).toFixed(2) : '0.00';
+
+      if (normMerchant && normDate && claimData.amount !== undefined && claimData.amount !== null) {
+        const rawString = `${normMerchant}|${normInvoiceNo}|${normDate}|${normAmount}`;
+        invoiceFingerprint = crypto.createHash('sha256').update(rawString).digest('hex');
+      }
+    }
+
+    console.log(`[Duplicate Check] Checking claim creation duplicates...`);
+    console.log(`[Duplicate Check] Generated receiptHash: ${receiptHash || 'null'}`);
+    console.log(`[Duplicate Check] Generated invoiceFingerprint: ${invoiceFingerprint || 'null'}`);
+
+    if (receiptHash) {
+      console.log(`[Duplicate Check] Running MongoDB query: { receiptHash: "${receiptHash}" }`);
+      const existingHash = await ExpenseClaim.findOne({ receiptHash });
+      if (existingHash) {
+        console.log(`[Duplicate Check] Duplicate found: YES`);
+        console.log(`[Duplicate Check] Duplicate Type: Exact File Match`);
+        console.log(`[Duplicate Check] Existing Claim ID: ${existingHash.id}`);
+        const err = new Error('Duplicate Receipt Detected');
+        err.code = 'DUPLICATE_RECEIPT';
+        err.status = 409;
+        err.duplicateType = 'Exact File Match';
+        err.existingClaim = {
+          id: existingHash.id,
+          submissionDate: existingHash.submissionDate || existingHash.createdAt,
+          employeeName: existingHash.employeeName || 'Unknown Employee'
+        };
+        throw err;
+      } else {
+        console.log(`[Duplicate Check] Duplicate found: NO`);
+      }
+    }
+
+    if (invoiceFingerprint) {
+      console.log(`[Duplicate Check] Running MongoDB query: { invoiceFingerprint: "${invoiceFingerprint}" }`);
+      const existingFingerprint = await ExpenseClaim.findOne({ invoiceFingerprint });
+      if (existingFingerprint) {
+        console.log(`[Duplicate Check] Duplicate found: YES`);
+        console.log(`[Duplicate Check] Duplicate Type: Invoice Match`);
+        console.log(`[Duplicate Check] Existing Claim ID: ${existingFingerprint.id}`);
+        const err = new Error('Duplicate Receipt Detected');
+        err.code = 'DUPLICATE_RECEIPT';
+        err.status = 409;
+        err.duplicateType = 'Invoice Match';
+        err.existingClaim = {
+          id: existingFingerprint.id,
+          submissionDate: existingFingerprint.submissionDate || existingFingerprint.createdAt,
+          employeeName: existingFingerprint.employeeName || 'Unknown Employee'
+        };
+        throw err;
+      } else {
+        console.log(`[Duplicate Check] Duplicate found: NO`);
+      }
+    }
 
     // Fetch employee name for verification and completeness
     const employee = await Employee.findOne({ employeeId: userId });
@@ -54,6 +135,8 @@ export class ExpenseService {
       ocrOverallScore: claimData.ocrOverallScore ? Number(claimData.ocrOverallScore) : null,
       ocrTimestamp: claimData.ocrTimestamp ? new Date(claimData.ocrTimestamp) : null,
       ocrConfidence: claimData.ocrConfidence || null,
+      receiptHash: receiptHash || '',
+      invoiceFingerprint: invoiceFingerprint || '',
       employeeNotes: claimData.employeeNotes || '',
       managerComments: claimData.managerComments || '',
       financeComments: claimData.financeComments || '',
@@ -136,6 +219,92 @@ export class ExpenseService {
     if (claimData.fileName) claim.fileName = claimData.fileName;
     if (claimData.fileType) claim.fileType = claimData.fileType;
     if (claimData.fileSize) claim.fileSize = Number(claimData.fileSize);
+    // 0. Duplicate checks before claim update
+    const receiptHash = claimData.receiptHash || claim.receiptHash;
+    let invoiceFingerprint = claimData.invoiceFingerprint || claim.invoiceFingerprint;
+
+    // Dynamically calculate invoiceFingerprint if not provided but values exist
+    if (!claimData.invoiceFingerprint) {
+      const merchantVal = claimData.merchant !== undefined ? claimData.merchant : claim.merchant;
+      const invoiceNoVal = claimData.invoiceNumber !== undefined ? claimData.invoiceNumber : claim.invoiceNumber;
+      const invoiceDateVal = claimData.invoiceDate || claim.invoiceDate;
+      const amountVal = claimData.amount !== undefined ? claimData.amount : claim.amount;
+
+      const normMerchant = String(merchantVal || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      const normInvoiceNo = String(invoiceNoVal || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      
+      let normDate = '';
+      if (invoiceDateVal) {
+        try {
+          const d = new Date(invoiceDateVal);
+          if (!isNaN(d.getTime())) {
+            normDate = d.toISOString().split('T')[0];
+          } else {
+            normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          }
+        } catch (e) {
+          normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        }
+      }
+
+      const normAmount = amountVal !== undefined && amountVal !== null ? Number(amountVal).toFixed(2) : '0.00';
+
+      if (normMerchant && normDate && amountVal !== undefined && amountVal !== null) {
+        const rawString = `${normMerchant}|${normInvoiceNo}|${normDate}|${normAmount}`;
+        invoiceFingerprint = crypto.createHash('sha256').update(rawString).digest('hex');
+      }
+    }
+
+    console.log(`[Duplicate Check] Checking claim update duplicates for claim ${claimId}...`);
+    console.log(`[Duplicate Check] receiptHash to check: ${receiptHash || 'null'}`);
+    console.log(`[Duplicate Check] invoiceFingerprint to check: ${invoiceFingerprint || 'null'}`);
+
+    if (receiptHash) {
+      console.log(`[Duplicate Check] Running MongoDB query: { receiptHash: "${receiptHash}", id: { $ne: "${claimId}" } }`);
+      const existingHash = await ExpenseClaim.findOne({ receiptHash, id: { $ne: claimId } });
+      if (existingHash) {
+        console.log(`[Duplicate Check] Duplicate found: YES`);
+        console.log(`[Duplicate Check] Duplicate Type: Exact File Match`);
+        console.log(`[Duplicate Check] Existing Claim ID: ${existingHash.id}`);
+        const err = new Error('Duplicate Receipt Detected');
+        err.code = 'DUPLICATE_RECEIPT';
+        err.status = 409;
+        err.duplicateType = 'Exact File Match';
+        err.existingClaim = {
+          id: existingHash.id,
+          submissionDate: existingHash.submissionDate || existingHash.createdAt,
+          employeeName: existingHash.employeeName || 'Unknown Employee'
+        };
+        throw err;
+      } else {
+        console.log(`[Duplicate Check] Duplicate found: NO`);
+      }
+    }
+
+    if (invoiceFingerprint) {
+      console.log(`[Duplicate Check] Running MongoDB query: { invoiceFingerprint: "${invoiceFingerprint}", id: { $ne: "${claimId}" } }`);
+      const existingFingerprint = await ExpenseClaim.findOne({ invoiceFingerprint, id: { $ne: claimId } });
+      if (existingFingerprint) {
+        console.log(`[Duplicate Check] Duplicate found: YES`);
+        console.log(`[Duplicate Check] Duplicate Type: Invoice Match`);
+        console.log(`[Duplicate Check] Existing Claim ID: ${existingFingerprint.id}`);
+        const err = new Error('Duplicate Receipt Detected');
+        err.code = 'DUPLICATE_RECEIPT';
+        err.status = 409;
+        err.duplicateType = 'Invoice Match';
+        err.existingClaim = {
+          id: existingFingerprint.id,
+          submissionDate: existingFingerprint.submissionDate || existingFingerprint.createdAt,
+          employeeName: existingFingerprint.employeeName || 'Unknown Employee'
+        };
+        throw err;
+      } else {
+        console.log(`[Duplicate Check] Duplicate found: NO`);
+      }
+    }
+
+    claim.receiptHash = receiptHash;
+    claim.invoiceFingerprint = invoiceFingerprint;
 
     // OCR fields updates if any
     if (claimData.ocrOverallScore !== undefined)

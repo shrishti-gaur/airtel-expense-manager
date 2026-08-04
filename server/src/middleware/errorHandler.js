@@ -17,9 +17,16 @@ export const errorHandler = (err, req, res, _next) => {
     code: err.code || 'INTERNAL_ERROR',
   };
 
+  if (err.code === 'DUPLICATE_RECEIPT') {
+    errorDetail.duplicateType = err.duplicateType;
+    errorDetail.existingClaim = err.existingClaim;
+  }
+
   if (config.nodeEnv === 'development') {
     errorDetail.stack = err.stack;
-    errorDetail.details = err.details || null;
+    if (err.code !== 'DUPLICATE_RECEIPT') {
+      errorDetail.details = err.details || null;
+    }
   }
 
   return sendError(res, message, errorDetail, statusCode);

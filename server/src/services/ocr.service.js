@@ -5,6 +5,8 @@ import { promisify } from 'util';
 import { config } from '../config/env.js';
 import { geminiService } from './gemini.service.js';
 import { createRequire } from 'module';
+import crypto from 'crypto';
+import { ExpenseClaim } from '../models/ExpenseClaim.js';
 
 const execFilePromise = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -19,6 +21,33 @@ export class OcrService {
    */
   async processReceipt(filePath) {
     console.log(`[OCR Service] Scanning receipt file path: ${filePath}`);
+    console.log('[OCR] Language: eng+hin');
+    console.log('[OCR] OCR Engine: Native Tesseract');
+    console.log('[OCR] Hindi support enabled');
+
+    // Calculate receiptHash
+    const fileBuffer = await fs.readFile(filePath);
+    const receiptHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+    // Compare receiptHash with existing claims
+    const existingHashClaim = await ExpenseClaim.findOne({ receiptHash });
+    if (existingHashClaim) {
+      console.log(`[OCR] Duplicate Type: Exact File Match`);
+      console.log(`[OCR] receiptHash: ${receiptHash}`);
+      console.log(`[OCR] invoiceFingerprint: null`);
+      console.log(`[OCR] Existing Claim ID: ${existingHashClaim.id}`);
+
+      const err = new Error('Duplicate Receipt Detected');
+      err.code = 'DUPLICATE_RECEIPT';
+      err.status = 409;
+      err.duplicateType = 'Exact File Match';
+      err.existingClaim = {
+        id: existingHashClaim.id,
+        submissionDate: existingHashClaim.submissionDate || existingHashClaim.createdAt,
+        employeeName: existingHashClaim.employeeName || 'Unknown Employee'
+      };
+      throw err;
+    }
 
     let rawText = '';
     const ext = path.extname(filePath).toLowerCase();
@@ -44,6 +73,52 @@ export class OcrService {
     // Convert raw OCR text to structured expense data via Gemini 2.5 Flash
     const parsed = await geminiService.parseExpense(rawText);
 
+    // Generate invoiceFingerprint
+    const normMerchant = String(parsed.merchantName || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    const normInvoiceNo = String(parsed.invoiceNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    
+    let normDate = '';
+    if (parsed.invoiceDate) {
+      try {
+        const d = new Date(parsed.invoiceDate);
+        if (!isNaN(d.getTime())) {
+          normDate = d.toISOString().split('T')[0];
+        } else {
+          normDate = String(parsed.invoiceDate).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        }
+      } catch (e) {
+        normDate = String(parsed.invoiceDate).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      }
+    }
+
+    const normAmount = parsed.amount !== undefined && parsed.amount !== null ? Number(parsed.amount).toFixed(2) : '0.00';
+
+    let invoiceFingerprint = null;
+    if (normMerchant && normDate && parsed.amount !== undefined && parsed.amount !== null) {
+      const rawString = `${normMerchant}|${normInvoiceNo}|${normDate}|${normAmount}`;
+      invoiceFingerprint = crypto.createHash('sha256').update(rawString).digest('hex');
+
+      // Compare invoiceFingerprint with existing claims
+      const existingFingerprintClaim = await ExpenseClaim.findOne({ invoiceFingerprint });
+      if (existingFingerprintClaim) {
+        console.log(`[OCR] Duplicate Type: Invoice Match`);
+        console.log(`[OCR] receiptHash: ${receiptHash}`);
+        console.log(`[OCR] invoiceFingerprint: ${invoiceFingerprint}`);
+        console.log(`[OCR] Existing Claim ID: ${existingFingerprintClaim.id}`);
+
+        const err = new Error('Duplicate Receipt Detected');
+        err.code = 'DUPLICATE_RECEIPT';
+        err.status = 409;
+        err.duplicateType = 'Invoice Match';
+        err.existingClaim = {
+          id: existingFingerprintClaim.id,
+          submissionDate: existingFingerprintClaim.submissionDate || existingFingerprintClaim.createdAt,
+          employeeName: existingFingerprintClaim.employeeName || 'Unknown Employee'
+        };
+        throw err;
+      }
+    }
+
     // Build the final response payload with both required fields and compatibility fields
     const confidenceScore = parsed.confidence || 0.0;
     const confidencePct = Math.round(confidenceScore * 100);
@@ -58,6 +133,16 @@ export class OcrService {
       currency: parsed.currency || 'INR',
       category: parsed.category || 'Others',
       confidence: confidenceScore,
+      gstin: parsed.gstin || '',
+      pan: parsed.pan || '',
+      subtotal: parsed.subtotal || 0,
+      cgst: parsed.cgst || 0,
+      sgst: parsed.sgst || 0,
+      igst: parsed.igst || 0,
+
+      // Duplicate detection keys
+      receiptHash,
+      invoiceFingerprint,
 
       // Existing client UI compatibility keys
       vendor: parsed.merchantName || '',

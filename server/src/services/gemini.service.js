@@ -42,29 +42,45 @@ export class GeminiService {
           {
             parts: [
               {
-                text: `You are an enterprise-grade corporate expense and invoice parser. Your task is to analyze the raw OCR text extracted from an uploaded receipt, bill, or invoice and return structured data.
+                text: `You are an enterprise-grade corporate expense and invoice extraction engine.
+The input OCR text may contain spelling mistakes, missing characters, Hindi, English, or mixed languages (mixed English-Hindi text), low-quality scans, rotated pages, blurred text, or slight handwritten annotations.
 
-Strictly adhere to these instructions:
-1. Extract the merchant/vendor name into "merchantName" (e.g. "Airtel", "Uber", "Zomato", "Microsoft"). Remove common corporate suffixes like "Inc.", "Ltd.", "Pvt. Ltd." unless necessary for clarity. If not found, use an empty string.
-2. Extract the invoice, receipt, or transaction number into "invoiceNumber" (empty string if not found).
-3. Extract the transaction or invoice date into "invoiceDate" in YYYY-MM-DD format (empty string if not found).
-4. Extract the total transaction or payable amount as a float/number into "amount" (0 if not found). Do not include currency symbols or commas.
-5. Extract the tax, GST, CGST, SGST, VAT, or service tax amount as a float/number into "gst" (0 if not found).
-6. Extract the three-letter currency code (e.g. "INR", "USD", "EUR") into "currency" (default: "INR").
-7. Classify the expense category into "category" based on the merchant name and content of the receipt. You MUST choose exactly ONE of the following allowed categories:
-   - "Travel": For taxi/cab rides, flight tickets, train bookings, fuel/petrol, vehicle rentals, tolls (e.g. Uber, Ola, IRCTC, Indigo, Air India, Indian Oil, HP Petrol, tolls, parking).
-   - "Meals & Entertainment": For food delivery, restaurants, coffee shops, fast food (e.g. Swiggy, Zomato, Starbucks, McDonald's, dine-in, cafes).
-   - "Internet & Communications": For mobile bills, broadband, phone recharges, sim cards (e.g. Airtel, Jio, Vodafone, Idea, broadband providers).
-   - "Office Supplies": For stationery, printing, office furniture, shipping/freight, laptops, IT hardware (e.g. HP Store, Dell, Lenovo, Gujarat Freight Tools, stationery, printer supplies).
-   - "Software Licences": For software subscriptions, SaaS tools, IDEs, cloud hosting (e.g. Microsoft, Adobe, JetBrains, IntelliJ, Github, Slack, Zoom, AWS).
-   - "Accommodation": For hotel bookings, lodge stays, guest houses (e.g. Taj, Marriott, OYO, FabHotels, Airbnb).
-   - "Utilities": For household/office utility bills like electricity, gas, water (e.g. Electricity, Water Bill, Gas Bill).
-   - "Others": Any expense that does not fit into the categories above.
-8. Determine a confidence score between 0.0 and 1.0 based on how clear and complete the information is in the OCR text.
+Tasks:
+1. Correct OCR mistakes dynamically as you parse the document.
+2. Translate Hindi content to English if required. Merchant names may remain in Hindi if no English translation exists.
+3. Detect the merchant/vendor name.
+4. Detect GSTIN, PAN, and invoice number.
+5. Extract the invoice or transaction date.
+6. Extract subtotal, CGST, SGST, IGST, GST/VAT and total amount.
+7. Detect currency.
+8. Predict the expense category from merchant and purchased items.
+9. Return a confidence score (0-1).
+10. If a value is missing, return an empty string or 0 instead of guessing.
+11. Return ONLY valid JSON matching the required schema.
 
-CRITICAL RULES:
-- The category value MUST be one of the 8 allowed values listed above. You must never return any other category.
-- If the confidence score is low (less than 0.5), you MUST set "category" to "Others".
+Strictly adhere to these instruction mappings:
+- "merchantName": Extracted merchant/vendor name. It may remain in Hindi if no English translation exists. If missing, return empty string.
+- "invoiceNumber": Extracted invoice, receipt, or transaction number. If missing, return empty string.
+- "invoiceDate": Extracted transaction date in YYYY-MM-DD format. If missing, return empty string.
+- "amount": The total transaction or payable amount as a float/number. If missing, return 0.
+- "gst": The total tax, GST, or VAT amount as a float/number. If missing, return 0.
+- "currency": Three-letter currency code (e.g., "INR", "USD", "EUR"). Default is "INR".
+- "category": Choose exactly ONE of the allowed categories:
+  - "Travel"
+  - "Meals & Entertainment"
+  - "Internet & Communications"
+  - "Office Supplies"
+  - "Software Licences"
+  - "Accommodation"
+  - "Utilities"
+  - "Others"
+- "confidence": Float score between 0.0 and 1.0. If confidence score is low (less than 0.5), you MUST set "category" to "Others".
+- "gstin": Extracted GSTIN number. If missing, return empty string.
+- "pan": Extracted PAN number. If missing, return empty string.
+- "subtotal": Extracted subtotal amount (before tax). If missing, return 0.
+- "cgst": Extracted CGST amount. If missing, return 0.
+- "sgst": Extracted SGST amount. If missing, return 0.
+- "igst": Extracted IGST amount. If missing, return 0.
 
 Raw OCR Text:
 """
@@ -87,6 +103,12 @@ ${rawText}
               currency: { type: 'STRING' },
               category: { type: 'STRING' },
               confidence: { type: 'NUMBER' },
+              gstin: { type: 'STRING' },
+              pan: { type: 'STRING' },
+              subtotal: { type: 'NUMBER' },
+              cgst: { type: 'NUMBER' },
+              sgst: { type: 'NUMBER' },
+              igst: { type: 'NUMBER' },
             },
             required: [
               'merchantName',
@@ -97,6 +119,12 @@ ${rawText}
               'currency',
               'category',
               'confidence',
+              'gstin',
+              'pan',
+              'subtotal',
+              'cgst',
+              'sgst',
+              'igst',
             ],
           },
         },
@@ -152,9 +180,6 @@ ${rawText}
     }
   }
 
-  /**
-   * Return a default empty structured payload on error or missing API key
-   */
   getDefaultStructure() {
     return {
       merchantName: '',
@@ -165,6 +190,12 @@ ${rawText}
       currency: 'INR',
       category: 'Others',
       confidence: 0.0,
+      gstin: '',
+      pan: '',
+      subtotal: 0,
+      cgst: 0,
+      sgst: 0,
+      igst: 0,
     };
   }
 }

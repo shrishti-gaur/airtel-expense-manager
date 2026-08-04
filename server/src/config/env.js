@@ -22,5 +22,5 @@ export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY,
   tesseractPath: process.env.TESSERACT_PATH || 'tesseract',
   tessdataPrefix: process.env.TESSDATA_PREFIX || '/opt/homebrew/share/tessdata/',
-  ocrLang: process.env.OCR_LANG || 'eng',
+  ocrLang: process.env.OCR_LANG || 'eng+hin',
 };

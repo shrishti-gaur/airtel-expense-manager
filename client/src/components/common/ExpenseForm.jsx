@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertTriangle, MessageSquare } from 'lucide-react';
+import { X, AlertTriangle, MessageSquare, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +12,7 @@ import ReceiptSection from './ReceiptSection';
 import ExpenseDetails from './ExpenseDetails';
 import Comments from './Comments';
 import ActionButtons from './ActionButtons';
+import DuplicateWarningModal from './DuplicateWarningModal';
 
 /**
  * Orchestrator component for the centered Expense Claim modal pop-up
@@ -53,6 +54,9 @@ const ExpenseForm = ({
   const [uploadDate, setUploadDate] = useState(null);
   const [errors, setErrors] = useState({});
   const [processing, setProcessing] = useState(false);
+  const [duplicateData, setDuplicateData] = useState(null);
+  const [receiptHash, setReceiptHash] = useState('');
+  const [invoiceFingerprint, setInvoiceFingerprint] = useState('');
 
   // Return to Employee comment prompt
   const [showReturnRemarks, setShowReturnRemarks] = useState(false);
@@ -89,6 +93,8 @@ const ExpenseForm = ({
       setFileType(data.fileType || '');
       setFileSize(data.fileSize || null);
       setUploadDate(data.uploadDate || null);
+      setReceiptHash(data.receiptHash || '');
+      setInvoiceFingerprint(data.invoiceFingerprint || '');
     } else {
       setFormData({
         merchant: '',
@@ -113,6 +119,8 @@ const ExpenseForm = ({
       setFileType('');
       setFileSize(null);
       setUploadDate(null);
+      setReceiptHash('');
+      setInvoiceFingerprint('');
     }
 
     setErrors({});
@@ -169,6 +177,8 @@ const ExpenseForm = ({
         setFileType(file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.doc' ? 'application/msword' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'));
         setFileSize(file.size);
         setUploadDate(new Date().toISOString());
+        setReceiptHash(extracted.receiptHash || '');
+        setInvoiceFingerprint(extracted.invoiceFingerprint || '');
 
         if (mode === 'Create') {
           setFormData((prev) => ({
@@ -184,7 +194,14 @@ const ExpenseForm = ({
         }
       } catch (err) {
         console.error('Failed to upload receipt file:', err);
-        alert('Failed to upload receipt file to server.');
+        if (err?.error?.code === 'DUPLICATE_RECEIPT') {
+          setDuplicateData({
+            duplicateType: err.error.duplicateType,
+            existingClaim: err.error.existingClaim,
+          });
+        } else {
+          alert('Failed to upload receipt file to server.');
+        }
       }
     }
   };
@@ -212,42 +229,76 @@ const ExpenseForm = ({
   };
 
   // Handle Draft Submission
-  const handleSaveDraft = (e) => {
+  const handleSaveDraft = async (e) => {
     e.preventDefault();
     if (onSubmit) {
-      onSubmit({
-        ...formData,
-        id: data?.id || `EXP-${Date.now()}`,
-        status: 'Draft',
-        submissionDate: formData.submissionDate || new Date().toISOString(),
-        receiptUrl,
-        fileName,
-        fileType,
-        fileSize,
-        uploadDate,
-        employeeName: data?.employeeName || user?.name || 'Unknown Employee',
-      });
+      setProcessing(true);
+      try {
+        await onSubmit({
+          ...formData,
+          id: data?.id || `EXP-${Date.now()}`,
+          status: 'Draft',
+          submissionDate: formData.submissionDate || new Date().toISOString(),
+          receiptUrl,
+          fileName,
+          fileType,
+          fileSize,
+          uploadDate,
+          receiptHash,
+          invoiceFingerprint,
+          employeeName: data?.employeeName || user?.name || 'Unknown Employee',
+        });
+      } catch (err) {
+        console.error('Failed to submit draft:', err);
+        if (err?.error?.code === 'DUPLICATE_RECEIPT') {
+          setDuplicateData({
+            duplicateType: err.error.duplicateType,
+            existingClaim: err.error.existingClaim,
+          });
+        } else {
+          alert(err.message || 'An error occurred while saving the draft.');
+        }
+      } finally {
+        setProcessing(false);
+      }
     }
   };
 
   // Handle Full Submission
-  const handleSubmitClaim = (e) => {
+  const handleSubmitClaim = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     if (onSubmit) {
-      onSubmit({
-        ...formData,
-        id: data?.id || `EXP-${Date.now()}`,
-        status: 'Submitted',
-        submissionDate: new Date().toISOString(),
-        receiptUrl,
-        fileName,
-        fileType,
-        fileSize,
-        uploadDate,
-        employeeName: data?.employeeName || user?.name || 'Unknown Employee',
-      });
+      setProcessing(true);
+      try {
+        await onSubmit({
+          ...formData,
+          id: data?.id || `EXP-${Date.now()}`,
+          status: 'Submitted',
+          submissionDate: new Date().toISOString(),
+          receiptUrl,
+          fileName,
+          fileType,
+          fileSize,
+          uploadDate,
+          receiptHash,
+          invoiceFingerprint,
+          employeeName: data?.employeeName || user?.name || 'Unknown Employee',
+        });
+      } catch (err) {
+        console.error('Failed to submit claim:', err);
+        if (err?.error?.code === 'DUPLICATE_RECEIPT') {
+          setDuplicateData({
+            duplicateType: err.error.duplicateType,
+            existingClaim: err.error.existingClaim,
+          });
+        } else {
+          alert(err.message || 'An error occurred while submitting the claim.');
+        }
+      } finally {
+        setProcessing(false);
+      }
     }
   };
 
@@ -417,6 +468,13 @@ const ExpenseForm = ({
           </div>
         </div>
       </div>
+
+      <DuplicateWarningModal
+        isOpen={!!duplicateData}
+        onClose={() => setDuplicateData(null)}
+        duplicateType={duplicateData?.duplicateType}
+        existingClaim={duplicateData?.existingClaim}
+      />
     </>
   );
 

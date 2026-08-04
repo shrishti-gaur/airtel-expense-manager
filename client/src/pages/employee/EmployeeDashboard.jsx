@@ -7,6 +7,7 @@ import LoadingSpinner from '../../components/loaders/LoadingSpinner';
 import ExpenseForm from '../../components/common/ExpenseForm';
 import StatusBadge from '../../components/common/StatusBadge';
 import api from '../../services/api';
+import DuplicateWarningModal from '../../components/common/DuplicateWarningModal';
 import {
   Plus,
   UploadCloud,
@@ -37,6 +38,7 @@ const EmployeeDashboard = () => {
   // Drag and drop states for OCR
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [duplicateData, setDuplicateData] = useState(null);
 
   const formatDateOnly = (dateString) => {
     if (!dateString) return 'N/A';
@@ -212,6 +214,8 @@ const EmployeeDashboard = () => {
           ocrOverallScore: extracted.confidenceScore ? Math.round(extracted.confidenceScore * 100) : null,
           ocrTimestamp: new Date().toISOString(),
           ocrConfidence: extracted.ocrConfidence || null,
+          receiptHash: extracted.receiptHash || '',
+          invoiceFingerprint: extracted.invoiceFingerprint || '',
         };
 
         setActiveClaimData(claimData);
@@ -228,11 +232,18 @@ const EmployeeDashboard = () => {
       });
     } catch (err) {
       console.error('Failed to process OCR receipt upload:', err);
-      addNotification(
-        'Upload & OCR Failed',
-        err.message || 'Failed to upload or parse receipt file.',
-        'error'
-      );
+      if (err?.error?.code === 'DUPLICATE_RECEIPT') {
+        setDuplicateData({
+          duplicateType: err.error.duplicateType,
+          existingClaim: err.error.existingClaim
+        });
+      } else {
+        addNotification(
+          'Upload & OCR Failed',
+          err.message || 'Failed to upload or parse receipt file.',
+          'error'
+        );
+      }
     } finally {
       setSelectedFile(null);
     }
@@ -270,14 +281,15 @@ const EmployeeDashboard = () => {
       if (res && res.success && res.data) {
         setClaims(res.data.claims || []);
       }
-    } catch (err) {
-      console.error('Failed to submit claim:', err);
-      addNotification('Submission Failed', err.message || 'An error occurred during submission', 'error');
-    } finally {
-      setLoading(false);
       setIsFormOpen(false);
       setActiveClaimData(null);
       navigate('/employee');
+    } catch (err) {
+      console.error('Failed to submit claim:', err);
+      // Rethrow error so calling component (ExpenseForm) can capture duplicate errors and keep form state open
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -353,6 +365,13 @@ const EmployeeDashboard = () => {
           data={activeClaimData}
           onSubmit={handleFormSubmit}
           userRole="Employee"
+        />
+
+        <DuplicateWarningModal
+          isOpen={!!duplicateData}
+          onClose={() => setDuplicateData(null)}
+          duplicateType={duplicateData?.duplicateType}
+          existingClaim={duplicateData?.existingClaim}
         />
       </div>
     );
@@ -634,7 +653,6 @@ const EmployeeDashboard = () => {
         </div>
       </Card>
 
-      {/* Reusable ExpenseForm Drawer Popup */}
       <ExpenseForm
         isOpen={isFormOpen}
         onClose={handleFormClose}
@@ -642,6 +660,13 @@ const EmployeeDashboard = () => {
         data={activeClaimData}
         onSubmit={handleFormSubmit}
         userRole="Employee"
+      />
+
+      <DuplicateWarningModal
+        isOpen={!!duplicateData}
+        onClose={() => setDuplicateData(null)}
+        duplicateType={duplicateData?.duplicateType}
+        existingClaim={duplicateData?.existingClaim}
       />
     </div>
   );
