@@ -13,6 +13,7 @@ import ExpenseDetails from './ExpenseDetails';
 import Comments from './Comments';
 import ActionButtons from './ActionButtons';
 import DuplicateWarningModal from './DuplicateWarningModal';
+import AppModal from './AppModal';
 
 /**
  * Orchestrator component for the centered Expense Claim modal pop-up
@@ -61,6 +62,11 @@ const ExpenseForm = ({
   // Return to Employee comment prompt
   const [showReturnRemarks, setShowReturnRemarks] = useState(false);
   const [returnRemarks, setReturnRemarks] = useState('');
+  const [alertConfig, setAlertConfig] = useState(null);
+
+  const showAlert = (title, message, type = 'error') => {
+    setAlertConfig({ title, message, type });
+  };
 
   const isEditable = mode === 'Create' || mode === 'Draft' || mode === 'Returned';
   const isCreateLayout = mode === 'Create' || mode === 'Draft';
@@ -157,7 +163,7 @@ const ExpenseForm = ({
       const isExtValid = allowedExtensions.includes(fileExt);
 
       if (!isMimeValid && !isExtValid) {
-        alert('Unsupported file format. Please upload PNG, JPG, JPEG, PDF, or DOCX receipt files.');
+        showAlert('Unsupported Format', 'Please upload PNG, JPG, JPEG, PDF, or DOCX receipt files.', 'warning');
         return;
       }
 
@@ -199,8 +205,13 @@ const ExpenseForm = ({
             duplicateType: err.error.duplicateType,
             existingClaim: err.error.existingClaim,
           });
+        } else if (err?.error?.code === 'SCREENSHOT_DETECTED') {
+          setDuplicateData({
+            isScreenshot: true,
+            screenshotMessage: err.error.reason
+          });
         } else {
-          alert('Failed to upload receipt file to server.');
+          showAlert('Upload Failed', 'Failed to upload receipt file to server.', 'error');
         }
       }
     }
@@ -256,7 +267,7 @@ const ExpenseForm = ({
             existingClaim: err.error.existingClaim,
           });
         } else {
-          alert(err.message || 'An error occurred while saving the draft.');
+          showAlert('Save Failed', err.message || 'An error occurred while saving the draft.', 'error');
         }
       } finally {
         setProcessing(false);
@@ -294,7 +305,7 @@ const ExpenseForm = ({
             existingClaim: err.error.existingClaim,
           });
         } else {
-          alert(err.message || 'An error occurred while submitting the claim.');
+          showAlert('Submission Failed', err.message || 'An error occurred while submitting the claim.', 'error');
         }
       } finally {
         setProcessing(false);
@@ -474,7 +485,24 @@ const ExpenseForm = ({
         onClose={() => setDuplicateData(null)}
         duplicateType={duplicateData?.duplicateType}
         existingClaim={duplicateData?.existingClaim}
+        isScreenshot={duplicateData?.isScreenshot}
+        screenshotMessage={duplicateData?.screenshotMessage}
       />
+
+      <AppModal
+        isOpen={!!alertConfig}
+        onClose={() => setAlertConfig(null)}
+        title={alertConfig?.title || 'Notification'}
+        subtitle={alertConfig?.type === 'error' ? 'System Error Alert' : alertConfig?.type === 'warning' ? 'Warning Alert' : 'System Success Message'}
+        maxWidth="max-w-md"
+      >
+        <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+          <AlertCircle className={`h-5 w-5 shrink-0 mt-0.5 ${alertConfig?.type === 'warning' ? 'text-amber-500' : alertConfig?.type === 'success' ? 'text-emerald-500' : 'text-red-500'}`} />
+          <div className="text-left text-sm text-slate-600 font-sans leading-relaxed">
+            {alertConfig?.message}
+          </div>
+        </div>
+      </AppModal>
     </>
   );
 

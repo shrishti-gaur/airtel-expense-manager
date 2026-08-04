@@ -237,6 +237,11 @@ const EmployeeDashboard = () => {
           duplicateType: err.error.duplicateType,
           existingClaim: err.error.existingClaim
         });
+      } else if (err?.error?.code === 'SCREENSHOT_DETECTED') {
+        setDuplicateData({
+          isScreenshot: true,
+          screenshotMessage: err.error.reason
+        });
       } else {
         addNotification(
           'Upload & OCR Failed',
@@ -372,6 +377,8 @@ const EmployeeDashboard = () => {
           onClose={() => setDuplicateData(null)}
           duplicateType={duplicateData?.duplicateType}
           existingClaim={duplicateData?.existingClaim}
+          isScreenshot={duplicateData?.isScreenshot}
+          screenshotMessage={duplicateData?.screenshotMessage}
         />
       </div>
     );
@@ -667,6 +674,8 @@ const EmployeeDashboard = () => {
         onClose={() => setDuplicateData(null)}
         duplicateType={duplicateData?.duplicateType}
         existingClaim={duplicateData?.existingClaim}
+        isScreenshot={duplicateData?.isScreenshot}
+        screenshotMessage={duplicateData?.screenshotMessage}
       />
     </div>
   );

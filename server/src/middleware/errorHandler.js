@@ -22,6 +22,11 @@ export const errorHandler = (err, req, res, _next) => {
     errorDetail.existingClaim = err.existingClaim;
   }
 
+  if (err.code === 'SCREENSHOT_DETECTED') {
+    errorDetail.reason = err.reason;
+    errorDetail.heuristic = err.heuristic;
+  }
+
   if (config.nodeEnv === 'development') {
     errorDetail.stack = err.stack;
     if (err.code !== 'DUPLICATE_RECEIPT') {

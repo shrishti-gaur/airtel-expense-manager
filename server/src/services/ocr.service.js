@@ -7,6 +7,7 @@ import { geminiService } from './gemini.service.js';
 import { createRequire } from 'module';
 import crypto from 'crypto';
 import { ExpenseClaim } from '../models/ExpenseClaim.js';
+import { ScreenshotDetectorService } from './screenshotDetector.service.js';
 
 const execFilePromise = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -24,6 +25,17 @@ export class OcrService {
     console.log('[OCR] Language: eng+hin');
     console.log('[OCR] OCR Engine: Native Tesseract');
     console.log('[OCR] Hindi support enabled');
+
+    // Screenshot detection check before processing
+    const screenshotResult = await ScreenshotDetectorService.detectScreenshot(filePath, path.basename(filePath));
+    if (screenshotResult.isScreenshot) {
+      const err = new Error('Screenshot Detected');
+      err.code = 'SCREENSHOT_DETECTED';
+      err.status = 422;
+      err.reason = 'Please upload the original receipt, invoice, or PDF instead of a screenshot.';
+      err.heuristic = screenshotResult.heuristic;
+      throw err;
+    }
 
     // Calculate receiptHash
     const fileBuffer = await fs.readFile(filePath);
