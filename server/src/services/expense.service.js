@@ -132,7 +132,7 @@ export class ExpenseService {
       fileName: claimData.fileName || '',
       fileType: claimData.fileType || '',
       fileSize: claimData.fileSize ? Number(claimData.fileSize) : null,
-      ocrOverallScore: claimData.ocrOverallScore ? Number(claimData.ocrOverallScore) : null,
+      ocrOverallScore: (claimData.ocrOverallScore !== undefined && claimData.ocrOverallScore !== null) ? Number(claimData.ocrOverallScore) : null,
       ocrTimestamp: claimData.ocrTimestamp ? new Date(claimData.ocrTimestamp) : null,
       ocrConfidence: claimData.ocrConfidence || null,
       receiptHash: receiptHash || '',

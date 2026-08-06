@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { execFile } from 'child_process';
+import { execFileSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,19 +91,32 @@ app.use((req, res, next) => {
 // 4. Centralized Error Handler Middleware
 app.use(errorHandler);
 
+// Verify Tesseract OCR installation at startup
+try {
+  const versionOutput = execFileSync(config.tesseractPath, ['--version'], { encoding: 'utf8' });
+  const versionLine = versionOutput.split('\n')[0] || 'Unknown version';
+  
+  console.log(`\n==================================================`);
+  console.log(`[OCR Startup] Tesseract Verification Successful`);
+  console.log(`  - Executable:   ${config.tesseractPath}`);
+  console.log(`  - Version:      ${versionLine}`);
+  console.log(`  - OCR Language: ${config.ocrLang}`);
+  console.log(`  - Tessdata:     ${config.tessdataPrefix ? config.tessdataPrefix : 'Default system internal path'}`);
+  console.log(`==================================================\n`);
+} catch (error) {
+  console.error(`\n======================================================================`);
+  console.error(`[CRITICAL STARTUP ERROR] Tesseract OCR is not installed or functional!`);
+  console.error(`  - Attempted executable: "${config.tesseractPath}"`);
+  console.error(`  - Error:                ${error.message}`);
+  console.error(`\n  Please verify that Tesseract is installed and in your system PATH,`);
+  console.error(`  or specify TESSERACT_PATH correctly in your environment / .env file.`);
+  console.error(`======================================================================\n`);
+  process.exit(1);
+}
+
 // 5. Spin up listener
 const server = app.listen(config.port, () => {
   console.log(`[Server] running in [${config.nodeEnv}] mode on port: ${config.port}`);
-  
-  // Log Tesseract version to verify installation
-  execFile(config.tesseractPath, ['--version'], (err, stdout, stderr) => {
-    if (err) {
-      console.error(`[Server] [OCR Init Warning] Failed to detect Tesseract executable at path: ${config.tesseractPath}. Error: ${err.message}`);
-    } else {
-      const firstLine = stdout.split('\n')[0] || '';
-      console.log(`[Server] [OCR Init] Tesseract detected successfully: ${firstLine}`);
-    }
-  });
 });
 
 export default server;

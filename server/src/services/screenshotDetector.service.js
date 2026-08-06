@@ -1,8 +1,9 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
+import { config } from '../config/env.js';
 
-const execAsync = promisify(exec);
+const execFilePromise = promisify(execFile);
 
 export class ScreenshotDetectorService {
   /**
@@ -55,13 +56,13 @@ export class ScreenshotDetectorService {
 
     // Heuristic 3: OCR text search
     try {
-      const tesseractPath = process.env.TESSERACT_PATH || 'tesseract';
-      const tessdataPrefix = process.env.TESSDATA_PREFIX;
-      const env = tessdataPrefix ? { ...process.env, TESSDATA_PREFIX: tessdataPrefix } : process.env;
-      const ocrLang = process.env.OCR_LANG || 'eng+hin';
+      const args = [filePath, 'stdout', '-l', config.ocrLang];
+      const env = { ...process.env };
+      if (config.tessdataPrefix) {
+        env.TESSDATA_PREFIX = config.tessdataPrefix;
+      }
 
-      const args = [filePath, 'stdout', '-l', ocrLang];
-      const { stdout } = await execAsync(`"${tesseractPath}" ${args.join(' ')}`, { env });
+      const { stdout } = await execFilePromise(config.tesseractPath, args, { env });
 
       const text = (stdout || '').toLowerCase();
       console.log(`[Screenshot Detector] Extracted raw text length for analysis: ${text.length}`);

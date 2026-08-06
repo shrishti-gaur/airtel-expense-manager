@@ -164,7 +164,7 @@ const ReceiptSection = ({
   };
 
   return (
-    <div className="flex w-full flex-col bg-slate-900 p-6 text-white h-full justify-between font-sans">
+    <div className="flex w-full flex-col bg-slate-900 p-4 sm:p-6 text-white h-full justify-between font-sans">
       
       {/* Dynamic persistent preview controls header */}
       <div className="mb-4 flex items-center justify-between font-sans flex-wrap gap-2 border-b border-slate-800 pb-3">
@@ -214,7 +214,7 @@ const ReceiptSection = ({
       </div>
 
       {/* Main preview container block */}
-      <div className="flex flex-1 items-center justify-center rounded-xl bg-slate-950/50 border border-slate-800/80 overflow-auto relative group min-h-[350px]">
+      <div className="flex h-[250px] md:h-auto md:flex-1 items-center justify-center rounded-xl bg-slate-950/50 border border-slate-800/80 overflow-auto relative group min-h-[220px] md:min-h-[350px]">
         {receiptUrl ? (
           <div className="h-full w-full flex flex-col items-center justify-center p-4 overflow-auto">
             
@@ -224,12 +224,12 @@ const ReceiptSection = ({
                 <img
                   src={receiptUrl}
                   alt="Receipt Invoice"
-                  className="rounded transition-all duration-200 cursor-zoom-in"
+                  className="rounded transition-all duration-200 cursor-zoom-in animate-in fade-in zoom-in-95"
                   style={{
-                    width: `${100 * zoomScale}%`,
-                    height: 'auto',
-                    maxWidth: 'none',
-                    maxHeight: `${380 * zoomScale}px`,
+                    width: zoomScale > 1 ? `${100 * zoomScale}%` : '100%',
+                    height: zoomScale > 1 ? 'auto' : '100%',
+                    maxWidth: zoomScale > 1 ? 'none' : '100%',
+                    maxHeight: zoomScale > 1 ? `${380 * zoomScale}px` : '100%',
                     objectFit: 'contain'
                   }}
                   onClick={() => setZoomOpen(true)}
@@ -300,7 +300,7 @@ const ReceiptSection = ({
 
             {/* DIRECT WORD (DOCX) HTML PREVIEW MODE */}
             {isDocx && (
-              <div className="h-full w-full overflow-auto bg-white rounded-lg p-4 text-left shadow-inner flex flex-col min-h-[380px] max-w-full">
+              <div className="h-full w-full overflow-auto bg-white rounded-lg p-4 text-left shadow-inner flex flex-col h-[250px] md:h-auto md:min-h-[380px] max-w-full">
                 {docxLoading && (
                   <div className="flex flex-col items-center justify-center gap-2 py-12 text-slate-500 mx-auto">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -358,14 +358,14 @@ const ReceiptSection = ({
 
       {/* Metadata info cards panel at bottom */}
       {receiptUrl && (
-        <div className="mt-4 border-t border-slate-800 pt-4 text-left font-sans text-xs space-y-2 bg-slate-950/20 p-3 rounded-lg border border-slate-800/60 shrink-0">
+        <div className="mt-3 md:mt-4 border-t border-slate-800 pt-3 md:pt-4 text-left font-sans text-xs space-y-1.5 md:space-y-2 bg-slate-950/20 p-2.5 md:p-3 rounded-lg border border-slate-800/60 shrink-0">
           <div className="flex justify-between items-center text-slate-400 select-none">
             <span className="font-semibold text-slate-500 uppercase tracking-wide text-[10px]">File Metadata</span>
             <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
               {isImage ? 'IMAGE' : isPdf ? 'PDF' : isDocx ? 'WORD' : 'FILE'}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-slate-300">
+          <div className="grid grid-cols-2 gap-x-3 md:gap-x-4 gap-y-2 md:gap-y-2.5 text-slate-300">
             <div className="truncate">
               <span className="block text-[10px] text-slate-500 font-semibold select-none">File Name</span>
               <span className="font-medium truncate block font-sans" title={fileName}>{fileName || 'receipt_document'}</span>

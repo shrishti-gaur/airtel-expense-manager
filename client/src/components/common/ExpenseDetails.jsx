@@ -307,9 +307,11 @@ const ExpenseDetails = ({
               4. OCR & AI Data Extraction
             </h4>
             <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-              ocrOverallScore < 80 
-                ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              ocrOverallScore >= 90
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : ocrOverallScore >= 75
+                  ? 'bg-amber-50 border-amber-200 text-amber-700'
+                  : 'bg-rose-50 border-rose-200 text-rose-700'
             }`}>
               Confidence Score: {ocrOverallScore}%
             </span>

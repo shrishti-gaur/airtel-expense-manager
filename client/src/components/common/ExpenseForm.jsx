@@ -46,6 +46,9 @@ const ExpenseForm = ({
     employeeNotes: '',
     managerComments: '',
     financeComments: '',
+    ocrOverallScore: null,
+    ocrTimestamp: null,
+    ocrConfidence: null,
   });
 
   const [receiptUrl, setReceiptUrl] = useState(null);
@@ -93,6 +96,9 @@ const ExpenseForm = ({
         employeeNotes: data.employeeNotes || '',
         managerComments: data.managerComments || '',
         financeComments: data.financeComments || '',
+        ocrOverallScore: data.ocrOverallScore !== undefined ? data.ocrOverallScore : null,
+        ocrTimestamp: data.ocrTimestamp || null,
+        ocrConfidence: data.ocrConfidence || null,
       });
       setReceiptUrl(data.receiptUrl || null);
       setFileName(data.fileName || '');
@@ -119,6 +125,9 @@ const ExpenseForm = ({
         employeeNotes: '',
         managerComments: '',
         financeComments: '',
+        ocrOverallScore: null,
+        ocrTimestamp: null,
+        ocrConfidence: null,
       });
       setReceiptUrl(null);
       setFileName('');
@@ -330,7 +339,7 @@ const ExpenseForm = ({
 
       {/* Floating Center Modal container (Permanently max-w-6xl) */}
       <div 
-        className="fixed inset-x-4 top-[8vh] bottom-[8vh] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 z-[70] flex w-full max-w-6xl flex-col bg-white shadow-2xl rounded-2xl overflow-hidden font-sans border border-slate-200/80"
+        className="fixed inset-x-4 top-[8vh] bottom-[8vh] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 z-[70] flex w-auto md:w-full max-w-6xl flex-col bg-white shadow-2xl rounded-2xl overflow-hidden font-sans border border-slate-200/80"
       >
         {/* Modal Header Area */}
         <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 shrink-0">
@@ -356,10 +365,10 @@ const ExpenseForm = ({
         </div>
 
         {/* Modal Main Body */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
           
-          {/* LEFT: Document Preview Section (Fixed at 50% split width on md) */}
-          <div className="hidden border-r border-slate-200 bg-slate-900 relative transition-all duration-300 md:block w-full md:w-1/2">
+          {/* LEFT: Document Preview Section (Fixed at 50% split width on md, stacked vertically on mobile) */}
+          <div className="w-full md:w-1/2 h-auto md:h-full shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-900 relative transition-all duration-300">
             <ReceiptSection
               receiptUrl={receiptUrl}
               fileName={fileName}
@@ -372,10 +381,10 @@ const ExpenseForm = ({
           </div>
 
           {/* RIGHT: Form Fields Sections (Full width on mobile/tablet, 50% on md) */}
-          <div className="flex flex-col flex-1 bg-slate-50 overflow-hidden w-full md:w-1/2">
+          <div className="flex flex-col flex-1 bg-slate-50 md:overflow-hidden w-full md:w-1/2">
             
             {/* Scrollable Form Content */}
-            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
+            <div className="flex-1 md:overflow-y-auto overflow-visible px-8 py-8 space-y-6">
               
               {/* Stepper progress indicator: Only shown when viewing an existing claim */}
               {!isCreateLayout && (

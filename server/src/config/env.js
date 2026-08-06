@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { execSync } from 'child_process';
 
 // Load variables from .env
 dotenv.config();
@@ -14,13 +15,26 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
+// Auto-detect Tesseract path if TESSERACT_PATH is not provided
+let tesseractPath = process.env.TESSERACT_PATH;
+if (!tesseractPath) {
+  try {
+    const whichPath = execSync('which tesseract', { encoding: 'utf8' }).trim();
+    if (whichPath) {
+      tesseractPath = whichPath;
+    }
+  } catch (err) {
+    tesseractPath = 'tesseract';
+  }
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '8000', 10),
   mongodbUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET,
   nodeEnv: process.env.NODE_ENV || 'development',
   geminiApiKey: process.env.GEMINI_API_KEY,
-  tesseractPath: process.env.TESSERACT_PATH || 'tesseract',
-  tessdataPrefix: process.env.TESSDATA_PREFIX || '/opt/homebrew/share/tessdata/',
+  tesseractPath,
+  tessdataPrefix: process.env.TESSDATA_PREFIX || undefined,
   ocrLang: process.env.OCR_LANG || 'eng+hin',
 };

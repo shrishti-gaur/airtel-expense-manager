@@ -237,9 +237,15 @@ const ManagerDashboard = () => {
                       <td className="py-4 px-4 text-left">
                         <div className="flex items-center gap-1.5 font-bold text-slate-700 leading-tight">
                           {claim.category}
-                          {claim.ocrOverallScore < 80 && (
-                            <span className="inline-flex text-[9px] font-bold text-amber-600 bg-amber-50 px-1 rounded border border-amber-200">
-                              Low OCR
+                          {claim.ocrOverallScore !== null && claim.ocrOverallScore !== undefined && (
+                            <span className={`inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded border select-none ${
+                              claim.ocrOverallScore >= 90
+                                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                : claim.ocrOverallScore >= 75
+                                  ? 'text-amber-700 bg-amber-50 border-amber-200'
+                                  : 'text-rose-700 bg-rose-50 border-rose-200'
+                            }`}>
+                              {claim.ocrOverallScore}% OCR
                             </span>
                           )}
                         </div>
@@ -492,9 +498,15 @@ const ManagerDashboard = () => {
                     <td className="py-4 px-4 text-left">
                       <div className="flex items-center gap-1.5 font-bold text-slate-700 leading-tight">
                         {claim.category}
-                        {claim.ocrOverallScore < 80 && (
-                          <span className="inline-flex text-[9px] font-bold text-amber-600 bg-amber-50 px-1 rounded border border-amber-200">
-                            Low OCR
+                        {claim.ocrOverallScore !== null && claim.ocrOverallScore !== undefined && (
+                          <span className={`inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded border select-none ${
+                            claim.ocrOverallScore >= 90
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : claim.ocrOverallScore >= 75
+                                ? 'text-amber-700 bg-amber-50 border-amber-200'
+                                : 'text-rose-700 bg-rose-50 border-rose-200'
+                          }`}>
+                            {claim.ocrOverallScore}% OCR
                           </span>
                         )}
                       </div>

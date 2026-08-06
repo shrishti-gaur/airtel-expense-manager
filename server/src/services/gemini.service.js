@@ -1,4 +1,5 @@
 import { config } from '../config/env.js';
+import { localParserService } from './localParser.service.js';
 
 export class GeminiService {
   /**
@@ -9,19 +10,39 @@ export class GeminiService {
   async parseExpense(rawText) {
     console.log(`[Gemini Service] Formatting raw text. Length: ${rawText?.length || 0}`);
 
-    // Log OCR extracted text
+    // [Audit Log - Step 1: Raw OCR Output]
     console.log(
-      `[Gemini Service] [Audit Log] OCR Extracted Text:\n-------------------\n${rawText || '(empty)'}\n-------------------`
+      `[Audit Log - Step 1: Raw OCR Output]:\n-------------------\n${rawText || '(empty)'}\n-------------------`
     );
 
     if (!rawText || !rawText.trim()) {
       return this.getDefaultStructure();
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    // --- Preprocessing Layer ---
+    // 1. Extract fields using local parser (regex) on the original unmasked raw text
+    const localParsed = localParserService.parse(rawText);
 
-    console.log("Config Key:", config.geminiApiKey);
-    console.log("Process Key:", process.env.GEMINI_API_KEY);
+    // [Audit Log - Step 2: Regex Output]
+    console.log(
+      `[Audit Log - Step 2: Regex Output]:\n-------------------\n${JSON.stringify(localParsed, null, 2)}\n-------------------`
+    );
+
+    // 2. Format a payload text: mask sensitive fields directly in the full OCR raw text
+    const maskedPayloadText = localParserService.maskSensitiveFields(rawText);
+
+    // 3. Estimate token reduction
+    const estimateTokens = (text) => Math.ceil((text || '').length / 4);
+    const rawTokens = estimateTokens(rawText);
+    const maskedTokens = estimateTokens(maskedPayloadText);
+    const tokenReduction = rawTokens - maskedTokens;
+    const reductionPercent = rawTokens > 0 ? ((tokenReduction / rawTokens) * 100).toFixed(2) : '0.00';
+
+    // Log reduction metadata
+    console.log(`[Local Preprocessor] [Audit Log] Raw OCR text length: ${rawText.length}`);
+    console.log(`[Local Preprocessor] [Audit Log] Token reduction achieved via masking: ${tokenReduction} tokens (${reductionPercent}% reduction)`);
+
+    const apiKey = process.env.GEMINI_API_KEY;
 
     // Log API key loaded (without exposing the whole key)
     console.log(
@@ -84,7 +105,7 @@ Strictly adhere to these instruction mappings:
 
 Raw OCR Text:
 """
-${rawText}
+${maskedPayloadText}
 """`,
               },
             ],
@@ -130,12 +151,9 @@ ${rawText}
         },
       };
 
-      // Log Gemini request payload and target model
-      console.log('[Gemini Service] [Audit Log] Sending request to Gemini 2.5 Flash API...');
-      console.log(`[Gemini Service] [Audit Log] Request URL: ${url}`);
+      // [Audit Log - Step 3: JSON Sent to Gemini]
       console.log(
-        '[Gemini Service] [Audit Log] Request Payload:',
-        JSON.stringify(payload, null, 2)
+        `[Audit Log - Step 3: JSON Sent to Gemini]:\n-------------------\n${JSON.stringify(payload, null, 2)}\n-------------------`
       );
 
       const response = await fetch(url, {
@@ -146,7 +164,6 @@ ${rawText}
         body: JSON.stringify(payload),
       });
 
-      // Log Gemini response status
       console.log(`[Gemini Service] [Audit Log] Gemini API response status: ${response.status}`);
 
       if (!response.ok) {
@@ -156,10 +173,9 @@ ${rawText}
 
       const responseData = await response.json();
 
-      // Log raw Gemini API response JSON
+      // [Audit Log - Step 4: Gemini Response]
       console.log(
-        '[Gemini Service] [Audit Log] Gemini API raw response data:',
-        JSON.stringify(responseData, null, 2)
+        `[Audit Log - Step 4: Gemini Response]:\n-------------------\n${JSON.stringify(responseData, null, 2)}\n-------------------`
       );
 
       const textResponse = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -170,10 +186,23 @@ ${rawText}
 
       const parsedJson = JSON.parse(textResponse.trim());
 
-      // Log parsed JSON
-      console.log('[Gemini Service] [Audit Log] Parsed JSON successfully:', parsedJson);
+      // Restore unmasked sensitive fields from local parser
+      const finalJson = {
+        ...parsedJson,
+        gstin: localParsed.gstin || parsedJson.gstin || '',
+        pan: localParsed.pan || parsedJson.pan || '',
+      };
 
-      return parsedJson;
+      // Clean up placeholders in case Gemini returned them
+      if (finalJson.gstin === '[MASKED_GSTIN]') finalJson.gstin = '';
+      if (finalJson.pan === '[MASKED_PAN]') finalJson.pan = '';
+
+      // [Audit Log - Step 5: Final JSON returned to frontend]
+      console.log(
+        `[Audit Log - Step 5: Final JSON returned to frontend]:\n-------------------\n${JSON.stringify(finalJson, null, 2)}\n-------------------`
+      );
+
+      return finalJson;
     } catch (error) {
       console.error('[Gemini Service] [Audit Log] Error calling Gemini API:', error.message);
       return this.getDefaultStructure();

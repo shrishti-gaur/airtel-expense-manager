@@ -159,7 +159,7 @@ export class DashboardService {
                 $cond: [
                   {
                     $and: [
-                      { $lt: ['$ocrOverallScore', 80] },
+                      { $lt: ['$ocrOverallScore', 75] },
                       { $in: ['$status', ['Submitted', 'Approved']] },
                     ],
                   },
