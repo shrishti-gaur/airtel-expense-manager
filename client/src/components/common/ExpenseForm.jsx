@@ -4,6 +4,7 @@ import { X, AlertTriangle, MessageSquare, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIContext';
 
 // Modular Child Components
 import StatusBadge from './StatusBadge';
@@ -28,6 +29,7 @@ const ExpenseForm = ({
   userRole = 'Employee',
 }) => {
   const { user } = useAuth();
+  const { runWithLoading, addNotification } = useUI();
   // Centralized Form Fields State
   const [formData, setFormData] = useState({
     merchant: '',
@@ -180,33 +182,55 @@ const ExpenseForm = ({
         const formDataPayload = new FormData();
         formDataPayload.append('receipt', file);
 
-        const res = await api.post('/ocr/process', formDataPayload, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const sequence = [
+          { message: 'Uploading Receipt...', duration: 1000 },
+          { message: 'Reading Receipt...', duration: 1200 },
+          { message: 'Extracting Text...', duration: 1500 },
+          { message: 'Processing...', duration: 800 },
+          { message: 'Almost Done...', duration: 600 }
+        ];
 
-        const extracted = res.data;
-        const uploadedUrl = extracted.receiptUrl || URL.createObjectURL(file);
+        await runWithLoading(sequence, async () => {
+          const res = await api.post('/ocr/process', formDataPayload, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
 
-        setReceiptUrl(uploadedUrl);
-        setFileName(file.name);
-        setFileType(file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.doc' ? 'application/msword' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'));
-        setFileSize(file.size);
-        setUploadDate(new Date().toISOString());
-        setReceiptHash(extracted.receiptHash || '');
-        setInvoiceFingerprint(extracted.invoiceFingerprint || '');
+          const extracted = res.data;
+          const uploadedUrl = extracted.receiptUrl || URL.createObjectURL(file);
 
-        if (mode === 'Create') {
+          setReceiptUrl(uploadedUrl);
+          setFileName(file.name);
+          setFileType(file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.doc' ? 'application/msword' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'));
+          setFileSize(file.size);
+          setUploadDate(new Date().toISOString());
+          setReceiptHash(extracted.receiptHash || '');
+          setInvoiceFingerprint(extracted.invoiceFingerprint || '');
+
           setFormData((prev) => ({
             ...prev,
-            merchant: extracted.vendor || '',
-            invoiceNumber: extracted.invoiceNumber || '',
-            amount: extracted.amount || '',
-            tax: extracted.taxAmount || '',
-            invoiceDate: extracted.date ? new Date(extracted.date).toISOString().split('T')[0] : '',
-            currency: extracted.currency || 'INR',
-            description: extracted.description || '',
+            merchant: extracted.vendor || prev.merchant || '',
+            invoiceNumber: extracted.invoiceNumber || prev.invoiceNumber || '',
+            amount: extracted.amount !== undefined ? extracted.amount : prev.amount || '',
+            tax: extracted.taxAmount !== undefined ? extracted.taxAmount : prev.tax || '',
+            invoiceDate: extracted.date ? new Date(extracted.date).toISOString().split('T')[0] : prev.invoiceDate || '',
+            currency: extracted.currency || prev.currency || 'INR',
+            description: extracted.description || prev.description || '',
+            category: extracted.category || prev.category || '',
+            ocrOverallScore: extracted.confidenceScore ? Math.round(extracted.confidenceScore * 100) : prev.ocrOverallScore,
+            ocrTimestamp: new Date().toISOString(),
+            ocrConfidence: extracted.ocrConfidence || prev.ocrConfidence,
           }));
-        }
+
+          if (addNotification) {
+            addNotification(
+              'OCR Scanning Succeeded',
+              extracted.amount
+                ? `Successfully extracted ₹${Number(extracted.amount).toLocaleString('en-IN')} from "${file.name}". Review details in the form.`
+                : `File "${file.name}" uploaded successfully. Fill in claim details.`,
+              'success'
+            );
+          }
+        });
       } catch (err) {
         console.error('Failed to upload receipt file:', err);
         if (err?.error?.code === 'DUPLICATE_RECEIPT') {

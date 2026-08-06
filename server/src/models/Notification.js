@@ -9,6 +9,7 @@ const NotificationSchema = new mongoose.Schema(
     timestamp: { type: Date, default: Date.now },
     read: { type: Boolean, default: false },
     type: { type: String, enum: ['info', 'success', 'warning', 'error'], default: 'info' },
+    claimId: { type: String },
   },
   { timestamps: true }
 );

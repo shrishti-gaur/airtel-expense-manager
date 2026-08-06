@@ -84,9 +84,24 @@ export class ManagerService {
         status === 'Approved'
           ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been approved by ${managerName} and forwarded to Finance.`
           : `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been returned by ${managerName} for correction. Reason: ${remarks}`,
+      claimId,
       type: status === 'Approved' ? 'success' : 'warning',
       read: false,
     });
+
+    // Notify Finance if approved
+    if (status === 'Approved') {
+      const financeNotificationId = `NOTIF-FIN-${Date.now()}`;
+      await Notification.create({
+        id: financeNotificationId,
+        userId: 'fin_789', // default finance
+        title: 'New Approved Claim for Audit',
+        description: `Claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been approved by ${managerName} and is awaiting your audit.`,
+        claimId,
+        type: 'info',
+        read: false,
+      });
+    }
 
     return updatedClaim;
   }

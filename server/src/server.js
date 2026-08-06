@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 // Config and services
 import { config } from './config/env.js';
 import { connectDB } from './config/db.js';
+import { schedulerService } from './services/scheduler.service.js';
 
 // Middlewares
 import { errorHandler } from './middleware/errorHandler.js';
@@ -31,6 +32,9 @@ const app = express();
 
 // 1. Establish Database Connection
 connectDB();
+
+// Start background scheduler tasks
+schedulerService.start();
 
 // 2. Global Security and Utility Middlewares
 app.use(

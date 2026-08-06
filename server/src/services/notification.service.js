@@ -69,6 +69,7 @@ export class NotificationService {
       type: data.type || 'info',
       read: false,
       timestamp: new Date(),
+      claimId: data.claimId || undefined,
     });
     return await newNotif.save();
   }

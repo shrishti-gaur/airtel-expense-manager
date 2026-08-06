@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
 import { X, Bell, CheckCheck, Trash2, Info, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 
@@ -6,6 +8,8 @@ import { X, Bell, CheckCheck, Trash2, Info, CheckCircle, AlertTriangle, AlertCir
  * Premium Right-Side Slide-out Drawer Panel for Activity Logs & Notifications
  */
 const NotificationPanel = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     notifications,
     notificationsOpen,
@@ -16,6 +20,20 @@ const NotificationPanel = () => {
     clearAllNotifications,
     unreadCount
   } = useUI();
+
+  const handleNotificationClick = (notif) => {
+    markAsRead(notif.id);
+    if (notif.claimId && user) {
+      const rolePath = 
+        user.role === 'Employee' 
+          ? 'employee' 
+          : user.role === 'Manager' 
+            ? 'manager' 
+            : 'finance';
+      navigate(`/${rolePath}?claimId=${notif.claimId}`);
+      setNotificationsOpen(false);
+    }
+  };
 
   if (!notificationsOpen) return null;
 
@@ -121,7 +139,7 @@ const NotificationPanel = () => {
             notifications.map((notif) => (
               <div
                 key={notif.id}
-                onClick={() => markAsRead(notif.id)}
+                onClick={() => handleNotificationClick(notif)}
                 className={`flex gap-3.5 p-5 text-left transition-colors cursor-pointer relative group ${
                   !notif.read ? 'bg-slate-50/40 hover:bg-slate-50' : 'hover:bg-slate-50/20'
                 }`}

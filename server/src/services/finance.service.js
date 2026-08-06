@@ -45,6 +45,10 @@ export class FinanceService {
       targetStatus = 'Rejected';
       historyAction = 'REJECTED';
       activityAction = 'CLAIM_REJECTED';
+    } else if (action === 'RETURN_TO_MANAGER') {
+      targetStatus = 'Submitted';
+      historyAction = 'FINANCE_RETURNED';
+      activityAction = 'CLAIM_RETURNED_TO_MANAGER';
     }
 
     const results = [];
@@ -58,7 +62,11 @@ export class FinanceService {
       claim.status = targetStatus;
       claim.financeComments =
         comments ||
-        (action === 'PROCESS_PAYMENT' ? 'Payment settled.' : 'Claim rejected by Finance.');
+        (action === 'PROCESS_PAYMENT' 
+          ? 'Payment settled.' 
+          : action === 'RETURN_TO_MANAGER'
+            ? 'Claim returned to manager by Finance.'
+            : 'Claim rejected by Finance.');
 
       let syncReceipt = null;
 
@@ -94,22 +102,78 @@ export class FinanceService {
         action: activityAction,
         claimId,
         amount: updatedClaim.amount,
-        details: `Claim processed and ${targetStatus.toLowerCase()} by ${financeName}.`,
+        details: action === 'RETURN_TO_MANAGER' 
+          ? `Claim returned to manager by ${financeName}.`
+          : `Claim processed and ${targetStatus.toLowerCase()} by ${financeName}.`,
       });
 
-      // Notify employee
-      const notificationId = `NOTIF-EMP-${Date.now()}`;
-      await Notification.create({
-        id: notificationId,
-        userId: updatedClaim.employeeId,
-        title: action === 'PROCESS_PAYMENT' ? 'Expense Reimbursed' : 'Expense Rejected by Finance',
-        description:
-          action === 'PROCESS_PAYMENT'
-            ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been reimbursed. Sync key: ${claim.oracleRefId}`
-            : `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been rejected by Finance. Remarks: ${claim.financeComments}`,
-        type: action === 'PROCESS_PAYMENT' ? 'success' : 'error',
-        read: false,
-      });
+      // Role-Based Notifications
+      if (action === 'RETURN_TO_MANAGER') {
+        // 1. Notify Manager: "Finance returned a claim for review"
+        await Notification.create({
+          id: `NOTIF-MGR-${Date.now()}-${claimId}`,
+          userId: 'mgr_456', // default manager
+          title: 'Finance Returned Claim for Review',
+          description: `Claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been returned by Finance for your review. Remarks: ${claim.financeComments}`,
+          claimId,
+          type: 'warning',
+          read: false,
+          timestamp: new Date(),
+        });
+
+        // 2. Notify Finance: "Claim returned to Manager"
+        await Notification.create({
+          id: `NOTIF-FIN-${Date.now()}-${claimId}`,
+          userId: financeId,
+          title: 'Claim Returned to Manager',
+          description: `You have returned claim ${claimId} to the manager for review.`,
+          claimId,
+          type: 'warning',
+          read: false,
+          timestamp: new Date(),
+        });
+      } else {
+        // Notify employee
+        await Notification.create({
+          id: `NOTIF-EMP-${Date.now()}-${claimId}`,
+          userId: updatedClaim.employeeId,
+          title: action === 'PROCESS_PAYMENT' ? 'Claim Synced to Oracle ERP' : 'Expense Rejected by Finance',
+          description:
+            action === 'PROCESS_PAYMENT'
+              ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been reimbursed and synced to Oracle ERP. Ref: ${claim.oracleRefId}`
+              : `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been rejected by Finance. Remarks: ${claim.financeComments}`,
+          claimId,
+          type: action === 'PROCESS_PAYMENT' ? 'success' : 'error',
+          read: false,
+          timestamp: new Date(),
+        });
+
+        if (action === 'PROCESS_PAYMENT') {
+          // Notify Manager: "Claim synced to Oracle ERP"
+          await Notification.create({
+            id: `NOTIF-MGR-${Date.now()}-${claimId}`,
+            userId: 'mgr_456',
+            title: 'Claim Synced to Oracle ERP',
+            description: `Claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} by ${updatedClaim.employeeName} has been synced to Oracle ERP. Ref: ${claim.oracleRefId}`,
+            claimId,
+            type: 'success',
+            read: false,
+            timestamp: new Date(),
+          });
+
+          // Notify Finance: "Claim synced to Oracle ERP"
+          await Notification.create({
+            id: `NOTIF-FIN-${Date.now()}-${claimId}`,
+            userId: financeId,
+            title: 'Claim Synced to Oracle ERP',
+            description: `Claim ${claimId} has been successfully synced to Oracle ERP. Ref: ${claim.oracleRefId}`,
+            claimId,
+            type: 'success',
+            read: false,
+            timestamp: new Date(),
+          });
+        }
+      }
 
       results.push({
         claimId,

@@ -189,7 +189,13 @@ const FinanceDashboard = () => {
 
     runWithLoading(sequence, async () => {
       try {
-        const erpAction = action === 'Reimbursed' ? 'PROCESS_PAYMENT' : 'REJECT_PAYMENT';
+        const erpAction = 
+          action === 'Reimbursed' 
+            ? 'PROCESS_PAYMENT' 
+            : action === 'Returned' 
+              ? 'RETURN_TO_MANAGER' 
+              : 'REJECT_PAYMENT';
+
         await api.post('/finance/bulk-process', {
           claimIds: [claimId],
           action: erpAction,
@@ -197,11 +203,17 @@ const FinanceDashboard = () => {
         });
 
         addNotification(
-          action === 'Reimbursed' ? 'Reimbursement Settled' : 'Claim Rejected',
+          action === 'Reimbursed' 
+            ? 'Reimbursement Settled' 
+            : action === 'Returned'
+              ? 'Claim Returned to Manager'
+              : 'Claim Rejected',
           action === 'Reimbursed'
             ? `Payment disbursed and synced to Oracle ERP for claim ${claimId}.`
-            : `Claim ${claimId} has been rejected by Finance.`,
-          action === 'Reimbursed' ? 'success' : 'error'
+            : action === 'Returned'
+              ? `Claim ${claimId} has been returned to the manager for review.`
+              : `Claim ${claimId} has been rejected by Finance.`,
+          action === 'Reimbursed' ? 'success' : action === 'Returned' ? 'warning' : 'error'
         );
 
         await fetchClaimsFromDb();

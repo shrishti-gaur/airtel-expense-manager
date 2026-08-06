@@ -175,7 +175,19 @@ export class ExpenseService {
         userId: 'mgr_456', // default manager
         title: 'New Claim Submitted',
         description: `New claim ${claimId} for ₹${savedClaim.amount.toLocaleString('en-IN')} from ${empName} requires your review.`,
+        claimId,
         type: 'info',
+        read: false,
+      });
+
+      const empNotificationId = `NOTIF-EMP-${Date.now()}`;
+      await Notification.create({
+        id: empNotificationId,
+        userId,
+        title: 'Claim Submitted Successfully',
+        description: `Your claim ${claimId} for ₹${savedClaim.amount.toLocaleString('en-IN')} has been submitted.`,
+        claimId,
+        type: 'success',
         read: false,
       });
     }
@@ -356,7 +368,19 @@ export class ExpenseService {
         userId: 'mgr_456',
         title: 'New Claim Submitted',
         description: `New claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} from ${claim.employeeName} requires your review.`,
+        claimId,
         type: 'info',
+        read: false,
+      });
+
+      const empNotificationId = `NOTIF-EMP-${Date.now()}`;
+      await Notification.create({
+        id: empNotificationId,
+        userId,
+        title: 'Claim Submitted Successfully',
+        description: `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been submitted.`,
+        claimId,
+        type: 'success',
         read: false,
       });
     }

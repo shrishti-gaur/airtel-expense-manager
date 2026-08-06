@@ -84,6 +84,14 @@ const ActionButtons = ({
             Cancel
           </Button>
           <Button
+            variant="outline"
+            disabled={processing}
+            className="border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+            onClick={onReturn}
+          >
+            Return to Manager
+          </Button>
+          <Button
             variant="danger"
             disabled={processing}
             onClick={onReject}
