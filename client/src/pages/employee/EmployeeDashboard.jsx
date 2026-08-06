@@ -18,8 +18,10 @@ import {
   FileText,
   ArrowLeft,
   History,
-  FileCheck
+  FileCheck,
+  Camera
 } from 'lucide-react';
+import { useCameraSupport, sanitizeCapturedFile } from '../../services/camera';
 
 const EmployeeDashboard = () => {
   const [claims, setClaims] = useState([]);
@@ -34,6 +36,8 @@ const EmployeeDashboard = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState('Create');
   const [activeClaimData, setActiveClaimData] = useState(null);
+
+  const isCameraSupported = useCameraSupport();
 
   // Drag and drop states for OCR
   const [dragActive, setDragActive] = useState(false);
@@ -173,6 +177,13 @@ const EmployeeDashboard = () => {
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       handleOcrFile(e.target.files[0]);
+    }
+  };
+
+  const handleCameraCapture = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const sanitized = sanitizeCapturedFile(e.target.files[0]);
+      handleOcrFile(sanitized);
     }
   };
 
@@ -349,12 +360,23 @@ const EmployeeDashboard = () => {
               <div className="flex flex-col sm:flex-row gap-3 w-full justify-center items-center">
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors">
                   <Upload className="h-4 w-4" />
-                  Upload Receipt File
+                  Upload Receipt
                   <input
                     type="file"
                     accept="image/*,application/pdf,.docx,.doc"
                     className="hidden"
                     onChange={handleFileChange}
+                  />
+                </label>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-800 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors">
+                  <Camera className="h-4 w-4" />
+                  Capture Receipt
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture={isCameraSupported ? 'environment' : undefined}
+                    className="hidden"
+                    onChange={handleCameraCapture}
                   />
                 </label>
               </div>
