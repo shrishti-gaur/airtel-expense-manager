@@ -1,6 +1,9 @@
 FROM node:22-alpine
 
-RUN apk add --no-cache tesseract-ocr
+RUN apk add --no-cache \
+    tesseract-ocr \
+    tesseract-ocr-data-eng \
+    tesseract-ocr-data-hin
 
 WORKDIR /app
 
