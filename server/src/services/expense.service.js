@@ -3,6 +3,24 @@ import { Employee } from '../models/Employee.js';
 import { Notification } from '../models/Notification.js';
 import { ActivityLog } from '../models/ActivityLog.js';
 import crypto from 'crypto';
+import path from 'path';
+
+function normalizeDbReceiptUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http') && !url.includes('/uploads/')) {
+    return url;
+  }
+  let filename = '';
+  if (url.includes('/uploads/')) {
+    filename = url.split('/uploads/').pop();
+  } else if (url.includes('\\uploads\\')) {
+    filename = url.split('\\uploads\\').pop();
+  } else {
+    filename = path.basename(url);
+  }
+  filename = filename.split('?')[0];
+  return `/uploads/${filename}`;
+}
 
 export class ExpenseService {
   /**
@@ -128,7 +146,7 @@ export class ExpenseService {
       projectCode: claimData.projectCode || '',
       expenseType: claimData.expenseType || 'Reimbursable',
       description: claimData.description || '',
-      receiptUrl: claimData.receiptUrl || '',
+      receiptUrl: normalizeDbReceiptUrl(claimData.receiptUrl),
       fileName: claimData.fileName || '',
       fileType: claimData.fileType || '',
       fileSize: claimData.fileSize ? Number(claimData.fileSize) : null,
@@ -227,7 +245,7 @@ export class ExpenseService {
     claim.employeeNotes =
       claimData.employeeNotes !== undefined ? claimData.employeeNotes : claim.employeeNotes;
 
-    if (claimData.receiptUrl) claim.receiptUrl = claimData.receiptUrl;
+    if (claimData.receiptUrl) claim.receiptUrl = normalizeDbReceiptUrl(claimData.receiptUrl);
     if (claimData.fileName) claim.fileName = claimData.fileName;
     if (claimData.fileType) claim.fileType = claimData.fileType;
     if (claimData.fileSize) claim.fileSize = Number(claimData.fileSize);

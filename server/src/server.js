@@ -17,6 +17,7 @@ import { schedulerService } from './services/scheduler.service.js';
 
 // Middlewares
 import { errorHandler } from './middleware/errorHandler.js';
+import { responseUrlNormalizer } from './middleware/urlNormalizer.middleware.js';
 
 // Route imports
 import authRoutes from './routes/auth.routes.js';
@@ -29,6 +30,7 @@ import aiRoutes from './routes/ai.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
+app.use(responseUrlNormalizer);
 
 // 1. Establish Database Connection
 connectDB();

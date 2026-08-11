@@ -44,16 +44,19 @@ export const useCameraSupport = () => {
 export const sanitizeCapturedFile = (file) => {
   if (!file) return null;
 
-  const hasExt = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
-  if (!hasExt) {
-    const ext = file.type === 'image/png' ? '.png' : '.jpg';
-    const name = `captured_receipt_${Date.now()}${ext}`;
-    return new File([file], name, { type: file.type || 'image/jpeg' });
+  // If it's already a File and has a valid name with extension, just return it
+  if (file instanceof File && file.name && /\.(jpg|jpeg|png|gif|webp|svg|pdf|docx|doc)$/i.test(file.name)) {
+    return file;
   }
 
-  // Ensure it's constructed via new File to normalize properties
-  return new File([file], file.name, {
-    type: file.type || 'image/jpeg',
-    lastModified: file.lastModified || Date.now(),
-  });
+  // Otherwise, construct a filename with extension
+  const ext = file.type === 'image/png' ? '.png' : '.jpg';
+  const name = `captured_receipt_${Date.now()}${ext}`;
+  
+  try {
+    return new File([file], name, { type: file.type || 'image/jpeg' });
+  } catch (e) {
+    // Fallback if File constructor is not supported
+    return file;
+  }
 };

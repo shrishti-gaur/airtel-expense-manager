@@ -16,6 +16,30 @@ import ActionButtons from './ActionButtons';
 import DuplicateWarningModal from './DuplicateWarningModal';
 import AppModal from './AppModal';
 
+const parseSafeDate = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+  } catch (e) {
+    console.error('Failed to parse date:', dateStr, e);
+  }
+  return '';
+};
+
+const normalizeCategory = (category) => {
+  if (!category) return '';
+  const cat = category.trim();
+  if (cat === 'Travel' || cat === 'Accommodation') return 'Travel';
+  if (cat === 'Meals & Entertainment' || cat === 'Meals') return 'Meals';
+  if (cat === 'Internet & Communications') return 'Internet & Communications';
+  if (cat === 'Software Licences' || cat === 'Software Licenses') return 'Software Licences';
+  if (cat === 'Office Supplies') return 'Office Supplies';
+  return 'Others';
+};
+
 /**
  * Orchestrator component for the centered Expense Claim modal pop-up
  */
@@ -84,12 +108,12 @@ const ExpenseForm = ({
       setFormData({
         merchant: data.merchant || '',
         invoiceNumber: data.invoiceNumber || '',
-        invoiceDate: data.invoiceDate ? new Date(data.invoiceDate).toISOString().split('T')[0] : (data.date ? new Date(data.date).toISOString().split('T')[0] : ''),
+        invoiceDate: parseSafeDate(data.invoiceDate || data.date),
         submissionDate: data.submissionDate || '',
         amount: data.amount || '',
         currency: data.currency || 'INR',
         tax: data.tax || '',
-        category: data.category || '',
+        category: normalizeCategory(data.category) || '',
         department: data.department || '',
         costCenter: data.costCenter || '',
         projectCode: data.projectCode || '',
@@ -169,7 +193,7 @@ const ExpenseForm = ({
       ];
       const allowedExtensions = ['.png', '.jpg', '.jpeg', '.pdf', '.docx', '.doc'];
       
-      const fileExt = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      const fileExt = file.name && file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase() : '';
       const isMimeValid = file.type && allowedMimeTypes.includes(file.type);
       const isExtValid = allowedExtensions.includes(fileExt);
 
@@ -178,9 +202,16 @@ const ExpenseForm = ({
         return;
       }
 
+      // Ensure the file has a valid extension for backend Multer verification
+      let finalName = file.name || 'receipt.jpg';
+      if (!allowedExtensions.includes(fileExt)) {
+        const ext = file.type === 'image/png' ? '.png' : '.jpg';
+        finalName = `captured_receipt_${Date.now()}${ext}`;
+      }
+
       try {
         const formDataPayload = new FormData();
-        formDataPayload.append('receipt', file);
+        formDataPayload.append('receipt', file, finalName);
 
         const sequence = [
           { message: 'Uploading Receipt...', duration: 1000 },
@@ -212,10 +243,10 @@ const ExpenseForm = ({
             invoiceNumber: extracted.invoiceNumber || prev.invoiceNumber || '',
             amount: extracted.amount !== undefined ? extracted.amount : prev.amount || '',
             tax: extracted.taxAmount !== undefined ? extracted.taxAmount : prev.tax || '',
-            invoiceDate: extracted.date ? new Date(extracted.date).toISOString().split('T')[0] : prev.invoiceDate || '',
+            invoiceDate: parseSafeDate(extracted.date) || prev.invoiceDate || '',
             currency: extracted.currency || prev.currency || 'INR',
             description: extracted.description || prev.description || '',
-            category: extracted.category || prev.category || '',
+            category: normalizeCategory(extracted.category) || prev.category || '',
             ocrOverallScore: extracted.confidenceScore ? Math.round(extracted.confidenceScore * 100) : prev.ocrOverallScore,
             ocrTimestamp: new Date().toISOString(),
             ocrConfidence: extracted.ocrConfidence || prev.ocrConfidence,

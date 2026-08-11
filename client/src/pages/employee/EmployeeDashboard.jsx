@@ -23,6 +23,30 @@ import {
 } from 'lucide-react';
 import { useCameraSupport, sanitizeCapturedFile } from '../../services/camera';
 
+const parseSafeDate = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+  } catch (e) {
+    console.error('Failed to parse date:', dateStr, e);
+  }
+  return '';
+};
+
+const normalizeCategory = (category) => {
+  if (!category) return '';
+  const cat = category.trim();
+  if (cat === 'Travel' || cat === 'Accommodation') return 'Travel';
+  if (cat === 'Meals & Entertainment' || cat === 'Meals') return 'Meals';
+  if (cat === 'Internet & Communications') return 'Internet & Communications';
+  if (cat === 'Software Licences' || cat === 'Software Licenses') return 'Software Licences';
+  if (cat === 'Office Supplies') return 'Office Supplies';
+  return 'Others';
+};
+
 const EmployeeDashboard = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -197,26 +221,35 @@ const EmployeeDashboard = () => {
       { message: 'Almost Done...', duration: 600 }
     ];
     
-    try {
-      const formDataPayload = new FormData();
-      formDataPayload.append('receipt', file);
+      const allowedExtensions = ['.png', '.jpg', '.jpeg', '.pdf', '.docx', '.doc'];
+      const fileExt = file.name && file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase() : '';
 
-      await runWithLoading(sequence, async () => {
-        const res = await api.post('/ocr/process', formDataPayload, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+      // Ensure the file has a valid extension for backend Multer verification
+      let finalName = file.name || 'receipt.jpg';
+      if (!allowedExtensions.includes(fileExt)) {
+        const ext = file.type === 'image/png' ? '.png' : '.jpg';
+        finalName = `captured_receipt_${Date.now()}${ext}`;
+      }
 
-        const extracted = res.data;
-        const fileExt = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      try {
+        const formDataPayload = new FormData();
+        formDataPayload.append('receipt', file, finalName);
+
+        await runWithLoading(sequence, async () => {
+          const res = await api.post('/ocr/process', formDataPayload, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+
+          const extracted = res.data;
 
         const claimData = {
           merchant: extracted.vendor || '',
           invoiceNumber: extracted.invoiceNumber || '',
-          invoiceDate: extracted.date ? new Date(extracted.date).toISOString().split('T')[0] : '',
+          invoiceDate: parseSafeDate(extracted.date),
           submissionDate: new Date().toISOString(),
           amount: extracted.amount || '',
           tax: extracted.taxAmount || '',
-          category: extracted.category || '',
+          category: normalizeCategory(extracted.category),
           description: extracted.description || '',
           receiptUrl: extracted.receiptUrl,
           fileName: file.name,
