@@ -8,11 +8,15 @@ import { createRequire } from 'module';
 import crypto from 'crypto';
 import { ExpenseClaim } from '../models/ExpenseClaim.js';
 import { ScreenshotDetectorService } from './screenshotDetector.service.js';
+import { fileURLToPath } from 'url';
 
 const execFilePromise = promisify(execFile);
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 const WordExtractor = require('word-extractor');
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class OcrService {
   /**
@@ -63,27 +67,53 @@ export class OcrService {
 
     let rawText = '';
     const ext = path.extname(filePath).toLowerCase();
+    
+    const totalStart = Date.now();
+    let preprocessTime = 0;
+    let ocrTime = 0;
+    let preprocessMeta = null;
 
     try {
       if (['.png', '.jpg', '.jpeg'].includes(ext)) {
-        rawText = await this.extractTextFromImage(filePath);
+        const ocrResult = await this.extractTextFromImage(filePath);
+        rawText = ocrResult.text;
+        preprocessTime = ocrResult.performance.preprocessTime;
+        ocrTime = ocrResult.performance.ocrTime;
+        preprocessMeta = ocrResult.performance.preprocessMeta;
       } else if (ext === '.pdf') {
+        const startPdf = Date.now();
         rawText = await this.extractTextFromPdf(filePath);
+        ocrTime = Date.now() - startPdf;
       } else if (['.doc', '.docx'].includes(ext)) {
+        const startWord = Date.now();
         rawText = await this.extractTextFromWord(filePath);
+        ocrTime = Date.now() - startWord;
       } else {
         throw new Error(`Unsupported file extension: ${ext}`);
       }
     } catch (err) {
       console.error(`[OCR Service] Error extracting raw text from ${ext} file:`, err.message);
-      // Fall back to empty rawText so Gemini/Fallback service can handle gracefully
       rawText = '';
     }
 
     console.log(`[OCR Service] Raw text extracted successfully. Length: ${rawText.length}`);
 
     // Convert raw OCR text to structured expense data via Gemini 2.5 Flash
+    const startGemini = Date.now();
     const parsed = await geminiService.parseExpense(rawText);
+    const geminiTime = Date.now() - startGemini;
+    const totalTime = Date.now() - totalStart;
+
+    console.log(`
+[OCR Pipeline Performance Audit Log]:
+--------------------------------------------------
+- File Name:          ${path.basename(filePath)}
+- File Extension:     ${ext}
+- Preprocessing Time: ${preprocessTime} ms
+- OCR Execution Time: ${ocrTime} ms
+- Gemini Service Time: ${geminiTime} ms
+- Total Pipeline Time: ${totalTime} ms
+--------------------------------------------------`);
 
     // Generate invoiceFingerprint
     const normMerchant = String(parsed.merchantName || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
@@ -170,30 +200,112 @@ export class OcrService {
         category: confidencePct,
       },
       extractedItems: [],
-      description: `OCR Extracted Expense from ${parsed.merchantName || 'Merchant'}`,
+      description: (() => {
+        let desc = `OCR Extracted Expense from ${parsed.merchantName || 'Merchant'}`;
+        if (parsed.pnr) desc += ` | PNR: ${parsed.pnr}`;
+        if (parsed.checkInDate && parsed.checkOutDate) desc += ` | Stay: ${parsed.checkInDate} to ${parsed.checkOutDate}`;
+        if (parsed.litres && parsed.rate) desc += ` | Fuel: ${parsed.litres} Ltrs @ ₹${parsed.rate}/Ltr`;
+        if (parsed.accountNumber) desc += ` | Acc No: ${parsed.accountNumber}`;
+        if (parsed.billingPeriod) desc += ` | Period: ${parsed.billingPeriod}`;
+        return desc;
+      })(),
     };
   }
 
   /**
-   * Extract raw text from image files via native Tesseract executable
+   * Extract raw text from image files via native Tesseract executable with Preprocessing
    * @param {string} filePath
-   * @returns {Promise<string>}
+   * @returns {Promise<object>} { text, performance }
    */
   async extractTextFromImage(filePath) {
     console.log(`[OCR Service] Extracting text from image via native Tesseract: ${filePath}`);
+    
+    let preprocessMeta = null;
+    let preprocessedPath = filePath;
+    const ext = path.extname(filePath).toLowerCase();
+    const isTempProcessed = ['.png', '.jpg', '.jpeg'].includes(ext);
+
+    const preprocessStart = Date.now();
+    if (isTempProcessed) {
+      preprocessedPath = path.join(
+        path.dirname(filePath),
+        `temp_ocr_preprocessed_${Date.now()}_${path.basename(filePath)}`
+      );
+      try {
+        const scriptPath = path.join(__dirname, 'preprocess.py');
+        const pythonCmd = 'python3';
+        
+        console.log(`[OCR Service] Invoking Python Preprocessor: ${scriptPath}`);
+        const { stdout } = await execFilePromise(pythonCmd, [scriptPath, filePath, preprocessedPath]);
+        
+        preprocessMeta = JSON.parse(stdout.trim());
+        console.log(`[OCR Preprocessor Results]:`, preprocessMeta);
+      } catch (err) {
+        console.error(`[OCR Service] Image preprocessing failed, falling back to original:`, err.message);
+        preprocessedPath = filePath;
+      }
+    }
+    const preprocessTime = Date.now() - preprocessStart;
+
+    const ocrStart = Date.now();
+    let text = '';
     try {
-      const args = [filePath, 'stdout', '-l', config.ocrLang];
+      // PSM 4 is optimal for single-column receipt grids. We also preserve interword spaces.
+      const args = [
+        preprocessedPath, 
+        'stdout', 
+        '-l', config.ocrLang,
+        '--psm', '4',
+        '-c', 'preserve_interword_spaces=1'
+      ];
+      
       const env = { ...process.env };
       if (config.tessdataPrefix) {
         env.TESSDATA_PREFIX = config.tessdataPrefix;
       }
       
       const { stdout } = await execFilePromise(config.tesseractPath, args, { env });
-      return stdout || '';
+      text = stdout || '';
+      
+      // Fallback pass: if the text length is very low (< 50 chars), perform a fallback pass using PSM 3 (auto page segmentation)
+      if (text.trim().length < 50) {
+        console.log(`[OCR Service] OCR pass 1 confidence very low (length: ${text.trim().length}). Triggering PSM 3 fallback pass...`);
+        const fallbackArgs = [
+          preprocessedPath,
+          'stdout',
+          '-l', config.ocrLang,
+          '--psm', '3',
+          '-c', 'preserve_interword_spaces=1'
+        ];
+        const fallbackRes = await execFilePromise(config.tesseractPath, fallbackArgs, { env });
+        const fallbackText = fallbackRes.stdout || '';
+        if (fallbackText.trim().length > text.trim().length) {
+          text = fallbackText;
+          console.log(`[OCR Service] Fallback pass succeeded. New length: ${text.trim().length}`);
+        }
+      }
     } catch (error) {
-      console.error(`[OCR Service] Tesseract image OCR failed for: ${filePath}`, error.message);
-      return '';
+      console.error(`[OCR Service] Tesseract image OCR failed for: ${preprocessedPath}`, error.message);
     }
+    const ocrTime = Date.now() - ocrStart;
+
+    // Clean up temporary preprocessed image if we created one
+    if (isTempProcessed && preprocessedPath !== filePath) {
+      try {
+        await fs.unlink(preprocessedPath);
+      } catch (e) {
+        console.warn(`[OCR Service] Could not unlink temp preprocessed file:`, preprocessedPath, e.message);
+      }
+    }
+
+    return {
+      text,
+      performance: {
+        preprocessTime,
+        ocrTime,
+        preprocessMeta
+      }
+    };
   }
 
   /**
@@ -246,7 +358,8 @@ export class OcrService {
         let ocrText = '';
         for (const img of pageImages) {
           const imgPath = path.join(tempDir, img);
-          const pageText = await this.extractTextFromImage(imgPath);
+          const pageOcrResult = await this.extractTextFromImage(imgPath);
+          const pageText = pageOcrResult.text;
           ocrText += pageText + '\n';
         }
 
