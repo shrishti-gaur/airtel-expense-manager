@@ -106,12 +106,27 @@ const EmployeeDashboard = () => {
         try {
           const imageBitmap = await createImageBitmap(file);
           const canvas = document.createElement('canvas');
-          canvas.width = imageBitmap.width;
-          canvas.height = imageBitmap.height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(imageBitmap, 0, 0);
           
-          runChecks(canvas.width, canvas.height, () => ctx.getImageData(0, 0, canvas.width, canvas.height));
+          // Limit max canvas dimension to 1200px to avoid memory OOMs on mobile
+          const maxDim = 1200;
+          let w = imageBitmap.width;
+          let h = imageBitmap.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(imageBitmap, 0, 0, w, h);
+          
+          runChecks(imageBitmap.width, imageBitmap.height, () => ctx.getImageData(0, 0, w, h));
           imageBitmap.close();
           return;
         } catch (e) {
@@ -125,13 +140,27 @@ const EmployeeDashboard = () => {
       img.src = objectUrl;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
+        const maxDim = 1200;
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        runChecks(canvas.width, canvas.height, () => ctx.getImageData(0, 0, canvas.width, canvas.height));
+        ctx.drawImage(img, 0, 0, w, h);
+        runChecks(img.naturalWidth, img.naturalHeight, () => ctx.getImageData(0, 0, w, h));
+        URL.revokeObjectURL(objectUrl);
       };
       img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
         handleOcrFile(file);
       };
     } else if (file) {
