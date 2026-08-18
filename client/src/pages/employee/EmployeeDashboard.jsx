@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import ImageQualityAlertModal from '../../components/common/ImageQualityAlertModal';
 import { useUI } from '../../context/UIContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -21,7 +22,7 @@ import {
   FileCheck,
   Camera
 } from 'lucide-react';
-import { useCameraSupport, sanitizeCapturedFile } from '../../services/camera';
+import { useCameraSupport, sanitizeCapturedFile, detectBlur, detectDarkness, detectLowResolution } from '../../services/camera';
 
 const parseSafeDate = (dateStr) => {
   if (!dateStr) return '';
@@ -62,6 +63,104 @@ const EmployeeDashboard = () => {
   const [activeClaimData, setActiveClaimData] = useState(null);
 
   const isCameraSupported = useCameraSupport();
+  const cameraFallbackInputRef = useRef(null);
+
+  // Post-capture validation states
+  const [isQualityAlertOpen, setIsQualityAlertOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [pendingDiagnostics, setPendingDiagnostics] = useState(null);
+  const [pendingDataUrl, setPendingDataUrl] = useState(null);
+
+  const processSelectedFile = async (file) => {
+    if (file && file.type && file.type.startsWith('image/')) {
+      const runChecks = (width, height, getImgData) => {
+        try {
+          const imageData = getImgData();
+          const blurInfo = detectBlur(imageData);
+          const darkInfo = detectDarkness(imageData);
+          const resInfo = detectLowResolution(width, height);
+          
+          const hasWarnings = blurInfo.isBlurry || darkInfo.isDark || resInfo.isLowRes;
+          
+          if (hasWarnings) {
+            setPendingFile(file);
+            setPendingDiagnostics({
+              blur: blurInfo,
+              dark: darkInfo,
+              resolution: resInfo,
+              width: width,
+              height: height
+            });
+            setPendingDataUrl(URL.createObjectURL(file));
+            setIsQualityAlertOpen(true);
+          } else {
+            handleOcrFile(file);
+          }
+        } catch (err) {
+          console.warn("Diagnostics error, uploading directly:", err);
+          handleOcrFile(file);
+        }
+      };
+
+      if (window.createImageBitmap) {
+        try {
+          const imageBitmap = await createImageBitmap(file);
+          const canvas = document.createElement('canvas');
+          canvas.width = imageBitmap.width;
+          canvas.height = imageBitmap.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(imageBitmap, 0, 0);
+          
+          runChecks(canvas.width, canvas.height, () => ctx.getImageData(0, 0, canvas.width, canvas.height));
+          imageBitmap.close();
+          return;
+        } catch (e) {
+          console.warn("createImageBitmap failed, falling back to Image:", e);
+        }
+      }
+
+      // Fallback: new Image() onload
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        runChecks(canvas.width, canvas.height, () => ctx.getImageData(0, 0, canvas.width, canvas.height));
+      };
+      img.onerror = () => {
+        handleOcrFile(file);
+      };
+    } else if (file) {
+      handleOcrFile(file);
+    }
+  };
+
+  const handleConfirmQualityAlert = () => {
+    if (pendingFile) {
+      handleOcrFile(pendingFile);
+    }
+    setIsQualityAlertOpen(false);
+    setPendingFile(null);
+    setPendingDiagnostics(null);
+    setPendingDataUrl(null);
+  };
+
+  const handleCloseQualityAlert = () => {
+    setIsQualityAlertOpen(false);
+    setPendingFile(null);
+    setPendingDiagnostics(null);
+    setPendingDataUrl(null);
+  };
+
+  const handleCaptureClick = () => {
+    if (cameraFallbackInputRef.current) {
+      cameraFallbackInputRef.current.click();
+    }
+  };
 
   // Drag and drop states for OCR
   const [dragActive, setDragActive] = useState(false);
@@ -200,14 +299,14 @@ const EmployeeDashboard = () => {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleOcrFile(e.target.files[0]);
+      processSelectedFile(e.target.files[0]);
     }
   };
 
   const handleCameraCapture = (e) => {
     if (e.target.files && e.target.files[0]) {
       const sanitized = sanitizeCapturedFile(e.target.files[0]);
-      handleOcrFile(sanitized);
+      processSelectedFile(sanitized);
     }
   };
 
@@ -401,17 +500,22 @@ const EmployeeDashboard = () => {
                     onChange={handleFileChange}
                   />
                 </label>
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-800 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors">
+                <button
+                  type="button"
+                  onClick={handleCaptureClick}
+                  className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-800 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors"
+                >
                   <Camera className="h-4 w-4" />
                   Capture Receipt
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture={isCameraSupported ? 'environment' : undefined}
-                    className="hidden"
-                    onChange={handleCameraCapture}
-                  />
-                </label>
+                </button>
+                <input
+                  ref={cameraFallbackInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleCameraCapture}
+                />
               </div>
             </div>
           </Card>
@@ -434,6 +538,14 @@ const EmployeeDashboard = () => {
           existingClaim={duplicateData?.existingClaim}
           isScreenshot={duplicateData?.isScreenshot}
           screenshotMessage={duplicateData?.screenshotMessage}
+        />
+
+        <ImageQualityAlertModal
+          isOpen={isQualityAlertOpen}
+          onClose={handleCloseQualityAlert}
+          onConfirm={handleConfirmQualityAlert}
+          diagnostics={pendingDiagnostics}
+          dataUrl={pendingDataUrl}
         />
       </div>
     );
@@ -731,6 +843,14 @@ const EmployeeDashboard = () => {
         existingClaim={duplicateData?.existingClaim}
         isScreenshot={duplicateData?.isScreenshot}
         screenshotMessage={duplicateData?.screenshotMessage}
+      />
+
+      <ImageQualityAlertModal
+        isOpen={isQualityAlertOpen}
+        onClose={handleCloseQualityAlert}
+        onConfirm={handleConfirmQualityAlert}
+        diagnostics={pendingDiagnostics}
+        dataUrl={pendingDataUrl}
       />
     </div>
   );

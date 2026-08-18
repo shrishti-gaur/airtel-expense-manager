@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ZoomIn, ZoomOut, Upload, FileText, X, FileCode, ChevronLeft, ChevronRight, Loader2, Camera } from 'lucide-react';
-import { useCameraSupport, sanitizeCapturedFile } from '../../services/camera';
+import { useCameraSupport, sanitizeCapturedFile, detectBlur, detectDarkness, detectLowResolution } from '../../services/camera';
+import ImageQualityAlertModal from './ImageQualityAlertModal';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { renderAsync } from 'docx-preview';
 
@@ -25,17 +26,125 @@ const ReceiptSection = ({
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const isCameraSupported = useCameraSupport();
+  const cameraFallbackInputRef = useRef(null);
+
+  // Post-capture validation states
+  const [isQualityAlertOpen, setIsQualityAlertOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [pendingDiagnostics, setPendingDiagnostics] = useState(null);
+  const [pendingDataUrl, setPendingDataUrl] = useState(null);
+
+  const processSelectedFile = async (file) => {
+    if (file && file.type && file.type.startsWith('image/')) {
+      const runChecks = (width, height, getImgData) => {
+        try {
+          const imageData = getImgData();
+          const blurInfo = detectBlur(imageData);
+          const darkInfo = detectDarkness(imageData);
+          const resInfo = detectLowResolution(width, height);
+          
+          const hasWarnings = blurInfo.isBlurry || darkInfo.isDark || resInfo.isLowRes;
+          
+          if (hasWarnings) {
+            setPendingFile(file);
+            setPendingDiagnostics({
+              blur: blurInfo,
+              dark: darkInfo,
+              resolution: resInfo,
+              width: width,
+              height: height
+            });
+            setPendingDataUrl(URL.createObjectURL(file));
+            setIsQualityAlertOpen(true);
+          } else {
+            triggerFileChange(file);
+          }
+        } catch (err) {
+          console.warn("Diagnostics error, uploading directly:", err);
+          triggerFileChange(file);
+        }
+      };
+
+      if (window.createImageBitmap) {
+        try {
+          const imageBitmap = await createImageBitmap(file);
+          const canvas = document.createElement('canvas');
+          canvas.width = imageBitmap.width;
+          canvas.height = imageBitmap.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(imageBitmap, 0, 0);
+          
+          runChecks(canvas.width, canvas.height, () => ctx.getImageData(0, 0, canvas.width, canvas.height));
+          imageBitmap.close();
+          return;
+        } catch (e) {
+          console.warn("createImageBitmap failed, falling back to Image:", e);
+        }
+      }
+
+      // Fallback: new Image() onload
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        runChecks(canvas.width, canvas.height, () => ctx.getImageData(0, 0, canvas.width, canvas.height));
+      };
+      img.onerror = () => {
+        triggerFileChange(file);
+      };
+    } else if (file) {
+      triggerFileChange(file);
+    }
+  };
+
+  const triggerFileChange = (file) => {
+    if (onFileChange) {
+      onFileChange({
+        target: {
+          files: [file]
+        }
+      });
+    }
+  };
+
+  const handleConfirmQualityAlert = () => {
+    if (pendingFile) {
+      triggerFileChange(pendingFile);
+    }
+    setIsQualityAlertOpen(false);
+    setPendingFile(null);
+    setPendingDiagnostics(null);
+    setPendingDataUrl(null);
+  };
+
+  const handleCloseQualityAlert = () => {
+    setIsQualityAlertOpen(false);
+    setPendingFile(null);
+    setPendingDiagnostics(null);
+    setPendingDataUrl(null);
+  };
+
+  const handleCaptureClick = () => {
+    if (cameraFallbackInputRef.current) {
+      cameraFallbackInputRef.current.click();
+    }
+  };
+
+  const handleUploadChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      processSelectedFile(e.target.files[0]);
+    }
+  };
 
   const handleCameraCapture = (e) => {
     if (e.target.files && e.target.files[0]) {
       const sanitized = sanitizeCapturedFile(e.target.files[0]);
-      if (onFileChange) {
-        onFileChange({
-          target: {
-            files: [sanitized]
-          }
-        });
-      }
+      processSelectedFile(sanitized);
     }
   };
 
@@ -411,20 +520,25 @@ const ReceiptSection = ({
               type="file"
               accept="image/*,application/pdf,.docx,.doc"
               className="hidden"
-              onChange={onFileChange}
+              onChange={handleUploadChange}
             />
           </label>
-          <label className="flex-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-950/30 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-950/50 hover:text-white transition-all select-none">
+          <button
+            type="button"
+            onClick={handleCaptureClick}
+            className="flex-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-950/30 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-950/50 hover:text-white transition-all select-none"
+          >
             <Camera className="h-4 w-4" />
             Capture Receipt
-            <input
-              type="file"
-              accept="image/*"
-              capture={isCameraSupported ? 'environment' : undefined}
-              className="hidden"
-              onChange={handleCameraCapture}
-            />
-          </label>
+          </button>
+          <input
+            ref={cameraFallbackInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleCameraCapture}
+          />
         </div>
       )}
 
@@ -449,6 +563,14 @@ const ReceiptSection = ({
           />
         </div>
       )}
+
+      <ImageQualityAlertModal
+        isOpen={isQualityAlertOpen}
+        onClose={handleCloseQualityAlert}
+        onConfirm={handleConfirmQualityAlert}
+        diagnostics={pendingDiagnostics}
+        dataUrl={pendingDataUrl}
+      />
     </div>
   );
 };
