@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertTriangle, MessageSquare, AlertCircle } from 'lucide-react';
+import { normalizeCategory, EXPENSE_CATEGORIES } from '../../constants/expenseCategories';
 import Button from '../ui/Button';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -29,16 +30,7 @@ const parseSafeDate = (dateStr) => {
   return '';
 };
 
-const normalizeCategory = (category) => {
-  if (!category) return '';
-  const cat = category.trim();
-  if (cat === 'Travel' || cat === 'Accommodation') return 'Travel';
-  if (cat === 'Meals & Entertainment' || cat === 'Meals') return 'Meals';
-  if (cat === 'Internet & Communications') return 'Internet & Communications';
-  if (cat === 'Software Licences' || cat === 'Software Licenses') return 'Software Licences';
-  if (cat === 'Office Supplies') return 'Office Supplies';
-  return 'Others';
-};
+// Modular Child Components
 
 /**
  * Orchestrator component for the centered Expense Claim modal pop-up
@@ -51,6 +43,7 @@ const ExpenseForm = ({
   onSubmit,
   onAction,
   userRole = 'Employee',
+  renderInline = false,
 }) => {
   const { user } = useAuth();
   const { runWithLoading, addNotification } = useUI();
@@ -64,11 +57,15 @@ const ExpenseForm = ({
     currency: 'INR',
     tax: '',
     category: '',
+    subcategory: '',
+    conveyanceMethod: '',
+    tripDistance: '',
+    distanceRate: '',
+    unitOfMeasure: 'KM',
     department: '',
     costCenter: '',
     projectCode: '',
     expenseType: 'Reimbursable',
-    description: '',
     employeeNotes: '',
     managerComments: '',
     financeComments: '',
@@ -93,6 +90,21 @@ const ExpenseForm = ({
   const [returnRemarks, setReturnRemarks] = useState('');
   const [alertConfig, setAlertConfig] = useState(null);
 
+  const [receiptPreference, setReceiptPreference] = useState('yes');
+
+  const handlePreferenceChange = (preference) => {
+    setReceiptPreference(preference);
+    if (preference === 'no') {
+      setReceiptUrl(null);
+      setFileName('');
+      setFileType('');
+      setFileSize(null);
+      setUploadDate(null);
+      setReceiptHash('');
+      setInvoiceFingerprint('');
+    }
+  };
+
   const showAlert = (title, message, type = 'error') => {
     setAlertConfig({ title, message, type });
   };
@@ -114,11 +126,15 @@ const ExpenseForm = ({
         currency: data.currency || 'INR',
         tax: data.tax || '',
         category: normalizeCategory(data.category) || '',
+        subcategory: data.subcategory || '',
+        conveyanceMethod: data.conveyanceMethod || '',
+        tripDistance: data.tripDistance || '',
+        distanceRate: data.distanceRate || '',
+        unitOfMeasure: data.unitOfMeasure || 'KM',
         department: data.department || '',
         costCenter: data.costCenter || '',
         projectCode: data.projectCode || '',
         expenseType: data.expenseType || 'Reimbursable',
-        description: data.description || '',
         employeeNotes: data.employeeNotes || '',
         managerComments: data.managerComments || '',
         financeComments: data.financeComments || '',
@@ -143,11 +159,15 @@ const ExpenseForm = ({
         currency: 'INR',
         tax: '',
         category: '',
+        subcategory: '',
+        conveyanceMethod: '',
+        tripDistance: '',
+        distanceRate: '',
+        unitOfMeasure: 'KM',
         department: user?.department || '',
         costCenter: user?.costCenter || '',
         projectCode: '',
         expenseType: 'Reimbursable',
-        description: '',
         employeeNotes: '',
         managerComments: '',
         financeComments: '',
@@ -245,8 +265,8 @@ const ExpenseForm = ({
             tax: extracted.taxAmount !== undefined ? extracted.taxAmount : prev.tax || '',
             invoiceDate: parseSafeDate(extracted.date) || prev.invoiceDate || '',
             currency: extracted.currency || prev.currency || 'INR',
-            description: extracted.description || prev.description || '',
             category: normalizeCategory(extracted.category) || prev.category || '',
+            subcategory: extracted.subcategory || prev.subcategory || '',
             ocrOverallScore: extracted.confidenceScore ? Math.round(extracted.confidenceScore * 100) : prev.ocrOverallScore,
             ocrTimestamp: new Date().toISOString(),
             ocrConfidence: extracted.ocrConfidence || prev.ocrConfidence,
@@ -284,19 +304,54 @@ const ExpenseForm = ({
   // Perform Form Validations
   const validateForm = () => {
     const tempErrors = {};
-    if (!formData.merchant?.trim()) tempErrors.merchant = 'Merchant name is required';
-    if (!formData.invoiceDate) tempErrors.invoiceDate = 'Invoice date is required';
-    if (!formData.category) tempErrors.category = 'Category selection is required';
-    
-    const amt = Number(formData.amount);
-    if (!formData.amount || isNaN(amt)) {
-      tempErrors.amount = 'Claim amount is required';
-    } else if (amt <= 0) {
-      tempErrors.amount = 'Claim amount must be greater than zero';
+
+    if (!formData.category) {
+      tempErrors.category = 'Category selection is required';
+    } else if (formData.category === 'Conveyance') {
+      if (formData.conveyanceMethod === 'Per Kilometer') {
+        const dist = Number(formData.tripDistance);
+        if (!formData.tripDistance || isNaN(dist) || dist <= 0) {
+          tempErrors.tripDistance = 'Trip distance must be greater than zero';
+        }
+        const rate = Number(formData.distanceRate);
+        if (!formData.distanceRate || isNaN(rate) || rate <= 0) {
+          tempErrors.distanceRate = 'Distance rate must be greater than zero';
+        }
+      } else if (formData.conveyanceMethod === 'Receipt Based') {
+        if (!formData.subcategory) {
+          tempErrors.subcategory = 'Conveyance expense type is required';
+        }
+        if (!formData.merchant?.trim()) {
+          tempErrors.merchant = 'Merchant name is required';
+        }
+      } else {
+        tempErrors.conveyanceMethod = 'Submission method is required';
+      }
+    } else {
+      // HR-related Expenses and others
+      if (!formData.merchant?.trim()) tempErrors.merchant = 'Merchant name is required';
+      const selectedCatConfig = EXPENSE_CATEGORIES.find(c => c.id === formData.category);
+      if (selectedCatConfig && selectedCatConfig.subcategories && selectedCatConfig.subcategories.length > 0 && !formData.subcategory) {
+        tempErrors.subcategory = 'Subcategory selection is required';
+      }
     }
 
-    if (!formData.description?.trim()) {
-      tempErrors.description = 'Business Purpose justification is required';
+    if (!formData.invoiceDate) {
+      tempErrors.invoiceDate = 'Invoice / Receipt date is required';
+    }
+
+    const amt = Number(formData.amount);
+    if (formData.category === 'Conveyance' && formData.conveyanceMethod === 'Per Kilometer') {
+      // Amount is calculated and doesn't need to be input, but must be valid
+      if (isNaN(amt) || amt <= 0) {
+        tempErrors.amount = 'Calculated amount must be greater than zero';
+      }
+    } else {
+      if (!formData.amount || isNaN(amt)) {
+        tempErrors.amount = 'Claim amount is required';
+      } else if (amt <= 0) {
+        tempErrors.amount = 'Claim amount must be greater than zero';
+      }
     }
 
     setErrors(tempErrors);
@@ -384,18 +439,10 @@ const ExpenseForm = ({
     }
   };
 
-  const modalContent = (
-    <>
-      {/* Backdrop Layer */}
-      <div
-        onClick={onClose}
-        className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 transition-all duration-300"
-      />
+  const showReceiptPane = mode === 'Create' ? (receiptPreference === 'yes') : (!!receiptUrl);
 
-      {/* Floating Center Modal container (Permanently max-w-6xl) */}
-      <div 
-        className="fixed inset-x-4 top-[8vh] bottom-[8vh] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 z-[70] flex w-auto md:w-full max-w-6xl flex-col bg-white shadow-2xl rounded-2xl overflow-hidden font-sans border border-slate-200/80"
-      >
+  const mainCardContent = (
+    <>
         {/* Modal Header Area */}
         <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 shrink-0">
           <div className="flex flex-col text-left">
@@ -411,35 +458,72 @@ const ExpenseForm = ({
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {onClose && !renderInline && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* Modal Main Body */}
         <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
           
           {/* LEFT: Document Preview Section (Fixed at 50% split width on md, stacked vertically on mobile) */}
-          <div className="w-full md:w-1/2 h-auto md:h-full shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-900 relative transition-all duration-300">
-            <ReceiptSection
-              receiptUrl={receiptUrl}
-              fileName={fileName}
-              fileType={fileType}
-              fileSize={fileSize}
-              uploadDate={uploadDate}
-              isEditable={isEditable}
-              onFileChange={handleFileChange}
-            />
-          </div>
+          {showReceiptPane && (
+            <div className="w-full md:w-1/2 h-auto md:h-full shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-900 relative transition-all duration-300">
+              <ReceiptSection
+                receiptUrl={receiptUrl}
+                fileName={fileName}
+                fileType={fileType}
+                fileSize={fileSize}
+                uploadDate={uploadDate}
+                isEditable={isEditable}
+                onFileChange={handleFileChange}
+              />
+            </div>
+          )}
 
           {/* RIGHT: Form Fields Sections (Full width on mobile/tablet, 50% on md) */}
-          <div className="flex flex-col flex-1 bg-slate-50 md:overflow-hidden w-full md:w-1/2">
+          <div className={`flex flex-col flex-1 bg-slate-50 md:overflow-hidden w-full ${showReceiptPane ? 'md:w-1/2' : ''}`}>
             
             {/* Scrollable Form Content */}
             <div className="flex-1 md:overflow-y-auto overflow-visible px-8 py-8 space-y-6">
+              
+              {/* Receipt Preference Selector (Only for New Claim mode on the dedicated page) */}
+              {mode === 'Create' && renderInline && (
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm text-left font-sans mb-6">
+                  <span className="block text-sm font-extrabold text-slate-800 mb-3 tracking-tight font-display">
+                    Do you want to upload a receipt?
+                  </span>
+                  <div className="grid grid-cols-2 gap-3 max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => handlePreferenceChange('yes')}
+                      className={`flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-sm font-bold transition-all border cursor-pointer ${
+                        receiptPreference === 'yes'
+                          ? 'bg-red-50 border-red-500 text-red-600 shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      Yes, upload receipt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePreferenceChange('no')}
+                      className={`flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-sm font-bold transition-all border cursor-pointer ${
+                        receiptPreference === 'no'
+                          ? 'bg-red-50 border-red-500 text-red-600 shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      No, submit manually
+                    </button>
+                  </div>
+                </div>
+              )}
               
               {/* Stepper progress indicator: Only shown when viewing an existing claim */}
               {!isCreateLayout && (
@@ -542,6 +626,25 @@ const ExpenseForm = ({
 
           </div>
         </div>
+    </>
+  );
+
+  const modalContent = (
+    <>
+      {!renderInline && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 transition-all duration-300"
+        />
+      )}
+
+      <div 
+        className={renderInline
+          ? "flex w-full max-w-6xl flex-col bg-white shadow-xl rounded-2xl overflow-hidden font-sans border border-slate-200/80 min-h-[75vh] md:h-[75vh]"
+          : "fixed inset-x-4 top-[8vh] bottom-[8vh] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 z-[70] flex w-auto md:w-full max-w-6xl flex-col bg-white shadow-2xl rounded-2xl overflow-hidden font-sans border border-slate-200/80"
+        }
+      >
+        {mainCardContent}
       </div>
 
       <DuplicateWarningModal
@@ -570,6 +673,9 @@ const ExpenseForm = ({
     </>
   );
 
+  if (renderInline) {
+    return modalContent;
+  }
   return createPortal(modalContent, document.body);
 };
 

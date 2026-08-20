@@ -101,22 +101,24 @@ app.use(errorHandler);
 try {
   const versionOutput = execFileSync(config.tesseractPath, ['--version'], { encoding: 'utf8' });
   const versionLine = versionOutput.split('\n')[0] || 'Unknown version';
-  
-  console.log(`\n==================================================`);
-  console.log(`[OCR Startup] Tesseract Verification Successful`);
+
+  console.log('\n==================================================');
+  console.log('[OCR Startup] Tesseract Verification Successful');
   console.log(`  - Executable:   ${config.tesseractPath}`);
   console.log(`  - Version:      ${versionLine}`);
   console.log(`  - OCR Language: ${config.ocrLang}`);
-  console.log(`  - Tessdata:     ${config.tessdataPrefix ? config.tessdataPrefix : 'Default system internal path'}`);
-  console.log(`==================================================\n`);
+  console.log(
+    `  - Tessdata:     ${config.tessdataPrefix ? config.tessdataPrefix : 'Default system internal path'}`
+  );
+  console.log('==================================================\n');
 } catch (error) {
-  console.error(`\n======================================================================`);
-  console.error(`[CRITICAL STARTUP ERROR] Tesseract OCR is not installed or functional!`);
+  console.error('\n======================================================================');
+  console.error('[CRITICAL STARTUP ERROR] Tesseract OCR is not installed or functional!');
   console.error(`  - Attempted executable: "${config.tesseractPath}"`);
   console.error(`  - Error:                ${error.message}`);
-  console.error(`\n  Please verify that Tesseract is installed and in your system PATH,`);
-  console.error(`  or specify TESSERACT_PATH correctly in your environment / .env file.`);
-  console.error(`======================================================================\n`);
+  console.error('\n  Please verify that Tesseract is installed and in your system PATH,');
+  console.error('  or specify TESSERACT_PATH correctly in your environment / .env file.');
+  console.error('======================================================================\n');
   process.exit(1);
 }
 

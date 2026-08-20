@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
@@ -17,12 +18,14 @@ import {
   ArrowLeft,
   Users,
   TrendingUp,
-  Award
+  Award,
+  User
 } from 'lucide-react';
 
 const ManagerDashboard = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [actioning, setActioning] = useState(null); // id of current claim being processed
 
   const location = useLocation();
@@ -213,7 +216,7 @@ const ManagerDashboard = () => {
                 <thead>
                   <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
                     <th className="py-3 px-4">Employee</th>
-                    <th className="py-3 px-4">Justification Details</th>
+                    <th className="py-3 px-4">Claim Details</th>
                     <th className="py-3 px-4">Amount</th>
                     <th className="py-3 px-4">Invoice Date</th>
                     <th className="py-3 px-4">Submission Date & Time</th>
@@ -236,7 +239,12 @@ const ManagerDashboard = () => {
                       </td>
                       <td className="py-4 px-4 text-left">
                         <div className="flex items-center gap-1.5 font-bold text-slate-700 leading-tight">
-                          {claim.category}
+                          <div>
+                            <div>{claim.category}</div>
+                            {claim.subcategory && (
+                              <div className="text-[10px] text-slate-400 font-normal font-sans mt-0.5">{claim.subcategory}</div>
+                            )}
+                          </div>
                           {claim.ocrOverallScore !== null && claim.ocrOverallScore !== undefined && (
                             <span className={`inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded border select-none ${
                               claim.ocrOverallScore >= 90
@@ -249,9 +257,6 @@ const ManagerDashboard = () => {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 line-clamp-1 font-medium font-sans mt-0.5">
-                          {claim.description}
-                        </p>
                       </td>
                       <td className="py-4 px-4 font-extrabold text-slate-800">
                         ₹{claim.amount.toLocaleString('en-IN')}
@@ -375,6 +380,10 @@ const ManagerDashboard = () => {
   }
 
   // 3. DEFAULT DASHBOARD VIEW
+  const latestClaim = claims.length > 0
+    ? [...claims].sort((a, b) => new Date(b.submissionDate || b.createdAt) - new Date(a.submissionDate || a.createdAt))[0]
+    : null;
+
   return (
     <div className="space-y-8 animate-fade-in font-sans">
       {/* Dashboard Header */}
@@ -447,102 +456,130 @@ const ManagerDashboard = () => {
         </Card>
       </div>
 
-      {/* Overview summaries - top active review claims */}
-      <Card 
-        title="Active Review Requests"
-        headerAction={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/manager/reviews')}
-            className="flex items-center gap-1.5 font-bold shadow-sm"
-          >
-            <ClipboardCheck className="h-4 w-4" />
-            Manage Queue
-          </Button>
-        }
-      >
-        {pendingRequests.length === 0 ? (
-          <div className="py-8 text-center text-slate-500">
-            <ClipboardCheck className="mx-auto h-12 w-12 text-slate-300 mb-2" />
-            <p className="font-semibold">Review queue is empty</p>
-            <p className="text-xs text-slate-400 mt-1">All team expense claims have been processed.</p>
+      {/* Redesigned Info & Activity Layout */}
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Manager Profile Card */}
+        <Card title="Manager Profile">
+          <div className="space-y-4 text-sm font-sans pt-1">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Manager Name</span>
+              <span className="font-extrabold text-slate-800">{user?.name || 'Sarah Manager'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">OLM ID</span>
+              <span className="font-bold text-slate-800 font-mono">{user?.id?.toUpperCase() || 'MGR_456'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Cost Centre</span>
+              <span className="font-extrabold text-slate-800">{user?.costCenter || 'CC-ENG-402'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Role</span>
+              <span className="font-extrabold text-slate-800">Line Manager (Approver)</span>
+            </div>
+            <div className="flex justify-between items-center pb-1">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Approval Authority</span>
+              <span className="font-extrabold text-slate-800">Standard CFA Limits</span>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-4">Employee</th>
-                  <th className="py-3 px-4">Justification Details</th>
-                  <th className="py-3 px-4">Amount</th>
-                  <th className="py-3 px-4">Invoice Date</th>
-                  <th className="py-3 px-4">Submission Date & Time</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                {pendingRequests.slice(0, 3).map((claim) => (
-                  <tr
-                    key={claim.id}
-                    onClick={() => handleRowClick(claim)}
-                    className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
-                  >
-                    <td className="py-4 px-4 text-left">
-                      <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
-                        {claim.employeeName || claim.employee}
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono font-medium">Claim ID: {claim.id}</span>
-                    </td>
-                    <td className="py-4 px-4 text-left">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-700 leading-tight">
-                        {claim.category}
-                        {claim.ocrOverallScore !== null && claim.ocrOverallScore !== undefined && (
-                          <span className={`inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded border select-none ${
-                            claim.ocrOverallScore >= 90
-                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                              : claim.ocrOverallScore >= 75
-                                ? 'text-amber-700 bg-amber-50 border-amber-200'
-                                : 'text-rose-700 bg-rose-50 border-rose-200'
-                          }`}>
-                            {claim.ocrOverallScore}% OCR
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 line-clamp-1 font-medium font-sans mt-0.5">
-                        {claim.description}
-                      </p>
-                    </td>
-                    <td className="py-4 px-4 font-extrabold text-slate-800">
-                      ₹{claim.amount.toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
-                    <td className="py-4 px-4">
-                      <StatusBadge status={claim.status} />
-                    </td>
-                    <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={actioning !== null}
-                          loading={actioning === claim.id}
-                          className="hover:border-slate-400 hover:bg-slate-50 text-slate-700 flex items-center gap-1"
-                          onClick={() => handleRowClick(claim)}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Review
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        </Card>
+
+        {/* Latest Team Claim Activity Card */}
+        <Card
+          title="Latest Team Claim Activity"
+          headerAction={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/manager/reviews')}
+              className="flex items-center gap-1.5 font-bold shadow-sm"
+            >
+              <ClipboardCheck className="h-4 w-4" />
+              View Queue
+            </Button>
+          }
+        >
+          {latestClaim ? (
+            <div className="space-y-4 text-sm font-sans pt-1">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Employee</span>
+                <span className="font-extrabold text-slate-800">{latestClaim.employeeName || latestClaim.employee}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Claim ID & Title</span>
+                <div className="text-right">
+                  <span className="font-mono text-slate-500 font-semibold mr-2">{latestClaim.id}</span>
+                  <span className="font-extrabold text-slate-800">{latestClaim.title}</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Category</span>
+                <span className="font-extrabold text-slate-800">
+                  {latestClaim.category}
+                  {latestClaim.subcategory && <span className="text-xs font-normal text-slate-400 ml-1">({latestClaim.subcategory})</span>}
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Amount</span>
+                <span className="font-extrabold text-slate-800">₹{latestClaim.amount.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Status</span>
+                <StatusBadge status={latestClaim.status} />
+              </div>
+              <div className="flex justify-between items-center pb-1">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Actions</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={actioning !== null}
+                  loading={actioning === latestClaim.id}
+                  className="hover:border-slate-400 hover:bg-slate-50 text-slate-700 flex items-center gap-1 py-1 h-auto"
+                  onClick={() => handleRowClick(latestClaim)}
+                >
+                  <Eye className="h-3 w-3" />
+                  Review Claim
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 font-sans">
+              <ClipboardCheck className="h-10 w-10 mb-2 opacity-40 text-slate-500" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">No team activity</span>
+              <p className="text-[11px] text-slate-400 mt-1 max-w-[200px]">
+                No claims are currently pending manager review.
+              </p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* How to Approve a Claim Card (Instructions) */}
+      <Card title="How to Approve a Claim">
+        <div className="grid gap-8 grid-cols-1 md:grid-cols-2 text-sm text-slate-600 font-sans pt-1">
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+              Verification Checklist
+            </h4>
+            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
+              <li>Inspect the attached receipt image and check the automated OCR confidence score.</li>
+              <li>Verify that the selected expense category and subcategory align with team duties.</li>
+              <li>Confirm distance and per-km rates for conveyance claims against travel records.</li>
+            </ul>
           </div>
-        )}
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+              Oversight & Exceptions
+            </h4>
+            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
+              <li>Check automated compliance alerts indicating duplicate matches or blacklisted vendors.</li>
+              <li>Ensure travel bookings match company booking policy or have exceptions attached.</li>
+              <li>Approve to forward to Finance Audit desk, or return with detailed correction comments.</li>
+            </ul>
+          </div>
+        </div>
       </Card>
 
       {/* Compliance / Fraud audit logs */}

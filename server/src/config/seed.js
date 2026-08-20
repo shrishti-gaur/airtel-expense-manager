@@ -82,7 +82,6 @@ export const seedDB = async () => {
             costCenter: 'CC-ENG-402',
             projectCode: 'PROJ-AIR-5G',
             expenseType: 'Reimbursable',
-            description: 'Monthly broadband billing for home office connectivity.',
             receiptUrl:
               'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
             fileName: 'receipt_document.png',
@@ -123,7 +122,6 @@ export const seedDB = async () => {
             costCenter: 'CC-SLS-101',
             projectCode: 'PROJ-IND-CLIENT',
             expenseType: 'Reimbursable',
-            description: 'Travel from office to client site for project review.',
             receiptUrl:
               'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
             fileName: 'receipt_document.png',
@@ -171,7 +169,6 @@ export const seedDB = async () => {
             costCenter: 'CC-ENG-402',
             projectCode: 'PROJ-AIR-5G',
             expenseType: 'Reimbursable',
-            description: 'Stakeholder meeting buffet dinner.',
             receiptUrl:
               'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
             fileName: 'receipt_document.png',
@@ -214,7 +211,6 @@ export const seedDB = async () => {
             costCenter: 'CC-ENG-402',
             projectCode: 'PROJ-AIR-5G',
             expenseType: 'Reimbursable',
-            description: 'Personal subscription renewal for IntelliJ Ultimate IDE.',
             receiptUrl:
               'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
             fileName: 'receipt_document.png',
@@ -259,7 +255,6 @@ export const seedDB = async () => {
             costCenter: 'CC-FIN-102',
             projectCode: 'PROJ-CORE-INFRA',
             expenseType: 'Corporate Card',
-            description: 'Test devices for network quality audits.',
             receiptUrl:
               'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
             fileName: 'receipt_document.png',
@@ -301,7 +296,6 @@ export const seedDB = async () => {
             costCenter: 'CC-ENG-402',
             projectCode: 'PROJ-AIR-5G',
             expenseType: 'Reimbursable',
-            description: 'Developer sandbox servers charges.',
             receiptUrl:
               'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
             fileName: 'receipt_document.png',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ZoomIn, ZoomOut, Upload, FileText, X, FileCode, ChevronLeft, ChevronRight, Loader2, Camera } from 'lucide-react';
-import { useCameraSupport, sanitizeCapturedFile, detectBlur, detectDarkness, detectLowResolution } from '../../services/camera';
+import { sanitizeCapturedFile, detectBlur, detectDarkness, detectLowResolution } from '../../services/camera';
 import ImageQualityAlertModal from './ImageQualityAlertModal';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { renderAsync } from 'docx-preview';
@@ -25,8 +25,12 @@ const ReceiptSection = ({
 }) => {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
-  const isCameraSupported = useCameraSupport();
+  const [isMobile, setIsMobile] = useState(false);
   const cameraFallbackInputRef = useRef(null);
+
+  useEffect(() => {
+    setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+  }, []);
 
   // Post-capture validation states
   const [isQualityAlertOpen, setIsQualityAlertOpen] = useState(false);
@@ -552,22 +556,26 @@ const ReceiptSection = ({
               onChange={handleUploadChange}
             />
           </label>
-          <button
-            type="button"
-            onClick={handleCaptureClick}
-            className="flex-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-950/30 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-950/50 hover:text-white transition-all select-none"
-          >
-            <Camera className="h-4 w-4" />
-            Capture Receipt
-          </button>
-          <input
-            ref={cameraFallbackInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleCameraCapture}
-          />
+          {isMobile && (
+            <button
+              type="button"
+              onClick={handleCaptureClick}
+              className="flex-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-950/30 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-950/50 hover:text-white transition-all select-none"
+            >
+              <Camera className="h-4 w-4" />
+              Capture Receipt
+            </button>
+          )}
+          {isMobile && (
+            <input
+              ref={cameraFallbackInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleCameraCapture}
+            />
+          )}
         </div>
       )}
 

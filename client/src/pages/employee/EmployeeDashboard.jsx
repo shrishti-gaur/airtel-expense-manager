@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ImageQualityAlertModal from '../../components/common/ImageQualityAlertModal';
 import { useUI } from '../../context/UIContext';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
@@ -9,6 +10,7 @@ import ExpenseForm from '../../components/common/ExpenseForm';
 import StatusBadge from '../../components/common/StatusBadge';
 import api from '../../services/api';
 import DuplicateWarningModal from '../../components/common/DuplicateWarningModal';
+import { normalizeCategory } from '../../constants/expenseCategories';
 import {
   Plus,
   UploadCloud,
@@ -20,9 +22,10 @@ import {
   ArrowLeft,
   History,
   FileCheck,
-  Camera
+  Camera,
+  User
 } from 'lucide-react';
-import { useCameraSupport, sanitizeCapturedFile, detectBlur, detectDarkness, detectLowResolution } from '../../services/camera';
+import { sanitizeCapturedFile, detectBlur, detectDarkness, detectLowResolution } from '../../services/camera';
 
 const parseSafeDate = (dateStr) => {
   if (!dateStr) return '';
@@ -37,20 +40,12 @@ const parseSafeDate = (dateStr) => {
   return '';
 };
 
-const normalizeCategory = (category) => {
-  if (!category) return '';
-  const cat = category.trim();
-  if (cat === 'Travel' || cat === 'Accommodation') return 'Travel';
-  if (cat === 'Meals & Entertainment' || cat === 'Meals') return 'Meals';
-  if (cat === 'Internet & Communications') return 'Internet & Communications';
-  if (cat === 'Software Licences' || cat === 'Software Licenses') return 'Software Licences';
-  if (cat === 'Office Supplies') return 'Office Supplies';
-  return 'Others';
-};
+// Unified category normalization imported from constants
 
 const EmployeeDashboard = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,8 +57,12 @@ const EmployeeDashboard = () => {
   const [formMode, setFormMode] = useState('Create');
   const [activeClaimData, setActiveClaimData] = useState(null);
 
-  const isCameraSupported = useCameraSupport();
+  const [isMobile, setIsMobile] = useState(false);
   const cameraFallbackInputRef = useRef(null);
+
+  useEffect(() => {
+    setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+  }, []);
 
   // Post-capture validation states
   const [isQualityAlertOpen, setIsQualityAlertOpen] = useState(false);
@@ -378,7 +377,6 @@ const EmployeeDashboard = () => {
           amount: extracted.amount || '',
           tax: extracted.taxAmount || '',
           category: normalizeCategory(extracted.category),
-          description: extracted.description || '',
           receiptUrl: extracted.receiptUrl,
           fileName: file.name,
           fileType: file.type || (fileExt === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : fileExt === '.pdf' ? 'application/pdf' : 'image/png'),
@@ -474,7 +472,44 @@ const EmployeeDashboard = () => {
     return <LoadingSpinner fullPage />;
   }
 
-  // 1. RENDER SCAN RECEIPT VIEW
+  // 1. RENDER CREATE EXPENSE CLAIM VIEW
+  if (location.pathname === '/employee/submit') {
+    return (
+      <div className="space-y-6 animate-fade-in font-sans">
+        {/* Back Link Header */}
+        <div className="text-left">
+          <button
+            onClick={handleFormClose}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-red-600 transition-colors uppercase tracking-wider mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </button>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
+            Create Expense Claim
+          </h1>
+          <p className="text-sm text-slate-500">
+            Fill in the expense details or upload/capture a receipt to automatically parse transaction information.
+          </p>
+        </div>
+
+        {/* Dedicated Page Form Container */}
+        <div className="max-w-6xl mx-auto">
+          <ExpenseForm
+            isOpen={true}
+            onClose={handleFormClose}
+            mode={formMode}
+            data={activeClaimData}
+            onSubmit={handleFormSubmit}
+            userRole="Employee"
+            renderInline={true}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 2. RENDER SCAN RECEIPT VIEW
   if (location.pathname === '/employee/scan') {
     return (
       <div className="space-y-6 animate-fade-in font-sans">
@@ -529,22 +564,26 @@ const EmployeeDashboard = () => {
                     onChange={handleFileChange}
                   />
                 </label>
-                <button
-                  type="button"
-                  onClick={handleCaptureClick}
-                  className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-800 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors"
-                >
-                  <Camera className="h-4 w-4" />
-                  Capture Receipt
-                </button>
-                <input
-                  ref={cameraFallbackInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleCameraCapture}
-                />
+                {isMobile && (
+                  <button
+                    type="button"
+                    onClick={handleCaptureClick}
+                    className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-700 hover:bg-slate-800 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Capture Receipt
+                  </button>
+                )}
+                {isMobile && (
+                  <input
+                    ref={cameraFallbackInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleCameraCapture}
+                  />
+                )}
               </div>
             </div>
           </Card>
@@ -608,7 +647,7 @@ const EmployeeDashboard = () => {
               <thead>
                 <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
                   <th className="py-3 px-4">Claim ID</th>
-                  <th className="py-3 px-4">Justification Title</th>
+                  <th className="py-3 px-4">Claim Title</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Invoice Date</th>
                   <th className="py-3 px-4">Submission Date & Time</th>
@@ -633,11 +672,13 @@ const EmployeeDashboard = () => {
                         <div className="font-bold text-slate-800 leading-tight group-hover:text-red-600 transition-colors">
                           {claim.title}
                         </div>
-                        <span className="text-[10px] text-slate-400 font-sans font-medium line-clamp-1">
-                          {claim.description}
-                        </span>
                       </td>
-                      <td className="py-4 px-4 text-slate-600 font-semibold">{claim.category}</td>
+                      <td className="py-4 px-4 text-slate-600 font-semibold text-left">
+                       <div>{claim.category}</div>
+                       {claim.subcategory && (
+                         <div className="text-[10px] text-slate-400 font-normal font-sans">{claim.subcategory}</div>
+                       )}
+                     </td>
                       <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
                       <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
                       <td className="py-4 px-4 font-extrabold text-slate-800">
@@ -693,6 +734,10 @@ const EmployeeDashboard = () => {
   }
 
   // 3. DEFAULT DASHBOARD VIEW
+  const latestClaim = claims.length > 0
+    ? [...claims].sort((a, b) => new Date(b.submissionDate || b.createdAt) - new Date(a.submissionDate || a.createdAt))[0]
+    : null;
+
   return (
     <div className="space-y-8 animate-fade-in font-sans">
       {/* Welcome Header */}
@@ -766,93 +811,112 @@ const EmployeeDashboard = () => {
       </div>
 
       {/* Claims Ledger Table Card */}
-      <Card
-        title="Recent Claim Submissions"
-        headerAction={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/employee/claims')}
-            className="flex items-center gap-1.5 font-bold shadow-sm"
-          >
-            <History className="h-4 w-4" />
-            View Full Ledger
-          </Button>
-        }
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
-                <th className="py-3 px-4">Claim ID</th>
-                <th className="py-3 px-4">Justification Title</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Invoice Date</th>
-                <th className="py-3 px-4">Submission Date & Time</th>
-                <th className="py-3 px-4">Amount</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-              {claims.slice(0, 5).map((claim) => {
-                const isReturned = claim.status === 'Returned';
-                const isDraft = claim.status === 'Draft';
+      {/* Redesigned Info & Activity Layout */}
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Employee Info Card */}
+        <Card title="Employee Profile">
+          <div className="space-y-4 text-sm font-sans pt-1">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Employee Name</span>
+              <span className="font-extrabold text-slate-800">{user?.name || 'John Employee'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">OLM ID</span>
+              <span className="font-bold text-slate-800 font-mono">{user?.id?.toUpperCase() || 'EMP_123'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Cost Centre</span>
+              <span className="font-extrabold text-slate-800">{user?.costCenter || 'CC-ENG-402'}</span>
+            </div>
+            <div className="flex justify-between items-center pb-1">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Reimbursement Currency</span>
+              <span className="font-extrabold text-slate-800">INR</span>
+            </div>
+          </div>
+        </Card>
 
-                return (
-                  <tr
-                    key={claim.id}
-                    onClick={() => handleRowClick(claim)}
-                    className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
-                  >
-                    <td className="py-4 px-4 font-semibold text-slate-500 font-mono">{claim.id}</td>
-                    <td className="py-4 px-4">
-                      <div className="font-bold text-slate-800 leading-tight group-hover:text-red-600 transition-colors">
-                        {claim.title}
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-sans font-medium line-clamp-1">
-                        {claim.description}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-slate-600 font-semibold">{claim.category}</td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
-                    <td className="py-4 px-4 font-extrabold text-slate-800">
-                      ₹{claim.amount.toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-4 px-4">
-                      <StatusBadge status={claim.status} />
-                    </td>
-                    <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-2">
-                        {isReturned || isDraft ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-1 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-800"
-                            onClick={() => handleRowClick(claim)}
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                            Correct
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-1 hover:border-slate-400 hover:bg-slate-50"
-                            onClick={() => handleRowClick(claim)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            View
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {/* Latest Claim Activity Card */}
+        <Card
+          title="Latest Claim Activity"
+          headerAction={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/employee/claims')}
+              className="flex items-center gap-1.5 font-bold shadow-sm"
+            >
+              <History className="h-4 w-4" />
+              View Ledger
+            </Button>
+          }
+        >
+          {latestClaim ? (
+            <div className="space-y-4 text-sm font-sans pt-1">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Claim ID & Title</span>
+                <div className="text-right">
+                  <span className="font-mono text-slate-500 font-semibold mr-2">{latestClaim.id}</span>
+                  <span className="font-extrabold text-slate-800">{latestClaim.title}</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Category</span>
+                <span className="font-extrabold text-slate-800">
+                  {latestClaim.category}
+                  {latestClaim.subcategory && <span className="text-xs font-normal text-slate-400 ml-1">({latestClaim.subcategory})</span>}
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Amount</span>
+                <span className="font-extrabold text-slate-800">₹{latestClaim.amount.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Status</span>
+                <StatusBadge status={latestClaim.status} />
+              </div>
+              <div className="flex justify-between items-center pb-1">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Submission Date</span>
+                <span className="font-semibold text-slate-500">{formatDateTime(latestClaim.submissionDate || latestClaim.createdAt)}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 font-sans">
+              <History className="h-10 w-10 mb-2 opacity-40 text-slate-500" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">No recent claims</span>
+              <p className="text-[11px] text-slate-400 mt-1 max-w-[200px]">
+                Create a new claim to view activity updates.
+              </p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* How to Apply a Claim Card (Instructions) */}
+      <Card title="How to Apply a Claim">
+        <div className="grid gap-8 grid-cols-1 md:grid-cols-2 text-sm text-slate-600 font-sans pt-1">
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+              Receipt Guidelines
+            </h4>
+            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
+              <li>Upload a clear, readable receipt photograph.</li>
+              <li>PDF/DOCX can be used where applicable for better readability.</li>
+              <li>Credit-card slips are not invoices.</li>
+            </ul>
+          </div>
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+              Policy Compliance
+            </h4>
+            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
+              <li>Check all extracted/manual details carefully before submitting.</li>
+              <li>Do not submit duplicate invoices.</li>
+              <li>Submit claims within the applicable policy period (60 days where applicable).</li>
+              <li>Follow approved travel/exception approval processes where required.</li>
+            </ul>
+          </div>
         </div>
       </Card>
 

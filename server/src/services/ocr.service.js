@@ -25,20 +25,20 @@ function parseTsvToTextAndConfidence(tsvOutput) {
   let textLines = [];
   let currentLineNum = -1;
   let currentLineWords = [];
-  
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
     const cols = line.split('\t');
     if (cols.length < 12) continue;
-    
+
     const conf = parseFloat(cols[10]);
     const wordText = cols[11]?.trim();
-    
+
     if (conf >= 0 && wordText) {
       wordCount++;
       totalConf += conf;
-      
+
       const lineNum = parseInt(cols[4], 10);
       if (lineNum !== currentLineNum) {
         if (currentLineWords.length > 0) {
@@ -54,12 +54,12 @@ function parseTsvToTextAndConfidence(tsvOutput) {
   if (currentLineWords.length > 0) {
     textLines.push(currentLineWords.join(' '));
   }
-  
-  const avgConf = wordCount > 0 ? (totalConf / wordCount) : 0;
+
+  const avgConf = wordCount > 0 ? totalConf / wordCount : 0;
   return {
     text: textLines.join('\n').trim(),
     avgConf,
-    wordCount
+    wordCount,
   };
 }
 
@@ -76,7 +76,10 @@ export class OcrService {
     console.log('[OCR] Hindi support enabled');
 
     // Screenshot detection check before processing
-    const screenshotResult = await ScreenshotDetectorService.detectScreenshot(filePath, path.basename(filePath));
+    const screenshotResult = await ScreenshotDetectorService.detectScreenshot(
+      filePath,
+      path.basename(filePath)
+    );
     if (screenshotResult.isScreenshot) {
       const err = new Error('Screenshot Detected');
       err.code = 'SCREENSHOT_DETECTED';
@@ -105,14 +108,14 @@ export class OcrService {
       err.existingClaim = {
         id: existingHashClaim.id,
         submissionDate: existingHashClaim.submissionDate || existingHashClaim.createdAt,
-        employeeName: existingHashClaim.employeeName || 'Unknown Employee'
+        employeeName: existingHashClaim.employeeName || 'Unknown Employee',
       };
       throw err;
     }
 
     let rawText = '';
     const ext = path.extname(filePath).toLowerCase();
-    
+
     const totalStart = Date.now();
     let preprocessTime = 0;
     let ocrTime = 0;
@@ -161,9 +164,15 @@ export class OcrService {
 --------------------------------------------------`);
 
     // Generate invoiceFingerprint
-    const normMerchant = String(parsed.merchantName || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-    const normInvoiceNo = String(parsed.invoiceNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-    
+    const normMerchant = String(parsed.merchantName || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
+    const normInvoiceNo = String(parsed.invoiceNumber || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
+
     let normDate = '';
     if (parsed.invoiceDate) {
       try {
@@ -171,14 +180,23 @@ export class OcrService {
         if (!isNaN(d.getTime())) {
           normDate = d.toISOString().split('T')[0];
         } else {
-          normDate = String(parsed.invoiceDate).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          normDate = String(parsed.invoiceDate)
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '')
+            .trim();
         }
       } catch (e) {
-        normDate = String(parsed.invoiceDate).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        normDate = String(parsed.invoiceDate)
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '')
+          .trim();
       }
     }
 
-    const normAmount = parsed.amount !== undefined && parsed.amount !== null ? Number(parsed.amount).toFixed(2) : '0.00';
+    const normAmount =
+      parsed.amount !== undefined && parsed.amount !== null
+        ? Number(parsed.amount).toFixed(2)
+        : '0.00';
 
     let invoiceFingerprint = null;
     if (normMerchant && normDate && parsed.amount !== undefined && parsed.amount !== null) {
@@ -199,8 +217,9 @@ export class OcrService {
         err.duplicateType = 'Invoice Match';
         err.existingClaim = {
           id: existingFingerprintClaim.id,
-          submissionDate: existingFingerprintClaim.submissionDate || existingFingerprintClaim.createdAt,
-          employeeName: existingFingerprintClaim.employeeName || 'Unknown Employee'
+          submissionDate:
+            existingFingerprintClaim.submissionDate || existingFingerprintClaim.createdAt,
+          employeeName: existingFingerprintClaim.employeeName || 'Unknown Employee',
         };
         throw err;
       }
@@ -245,15 +264,6 @@ export class OcrService {
         category: confidencePct,
       },
       extractedItems: [],
-      description: (() => {
-        let desc = `OCR Extracted Expense from ${parsed.merchantName || 'Merchant'}`;
-        if (parsed.pnr) desc += ` | PNR: ${parsed.pnr}`;
-        if (parsed.checkInDate && parsed.checkOutDate) desc += ` | Stay: ${parsed.checkInDate} to ${parsed.checkOutDate}`;
-        if (parsed.litres && parsed.rate) desc += ` | Fuel: ${parsed.litres} Ltrs @ ₹${parsed.rate}/Ltr`;
-        if (parsed.accountNumber) desc += ` | Acc No: ${parsed.accountNumber}`;
-        if (parsed.billingPeriod) desc += ` | Period: ${parsed.billingPeriod}`;
-        return desc;
-      })(),
     };
   }
 
@@ -263,8 +273,10 @@ export class OcrService {
    * @returns {Promise<object>} { text, performance }
    */
   async extractTextFromImage(filePath) {
-    console.log(`[OCR Service] Extracting text from image via native Tesseract with Multi-Variant Selection: ${filePath}`);
-    
+    console.log(
+      `[OCR Service] Extracting text from image via native Tesseract with Multi-Variant Selection: ${filePath}`
+    );
+
     let preprocessMeta = null;
     let variants = [{ id: 'original', path: filePath }];
     const ext = path.extname(filePath).toLowerCase();
@@ -279,20 +291,28 @@ export class OcrService {
       try {
         const scriptPath = path.join(__dirname, 'preprocess.py');
         const pythonCmd = 'python3';
-        
+
         console.log(`[OCR Service] Invoking Python Preprocessor: ${scriptPath}`);
         const { stdout } = await execFilePromise(pythonCmd, [scriptPath, filePath, tempPathBase]);
-        
+
         preprocessMeta = JSON.parse(stdout.trim());
         console.log('[OCR Preprocessor Results]:', preprocessMeta);
-        
-        if (preprocessMeta && preprocessMeta.success && preprocessMeta.variants && preprocessMeta.variants.length > 0) {
+
+        if (
+          preprocessMeta &&
+          preprocessMeta.success &&
+          preprocessMeta.variants &&
+          preprocessMeta.variants.length > 0
+        ) {
           variants = preprocessMeta.variants;
         } else {
           variants = [{ id: 'v1', path: tempPathBase }];
         }
       } catch (err) {
-        console.error('[OCR Service] Image preprocessing failed, falling back to original:', err.message);
+        console.error(
+          '[OCR Service] Image preprocessing failed, falling back to original:',
+          err.message
+        );
         variants = [{ id: 'original', path: filePath }];
       }
     }
@@ -300,7 +320,7 @@ export class OcrService {
 
     const ocrStart = Date.now();
     let ocrResults = [];
-    
+
     try {
       const env = { ...process.env };
       if (config.tessdataPrefix) {
@@ -311,25 +331,30 @@ export class OcrService {
       const ocrPromises = variants.map(async (v) => {
         try {
           const args = [
-            v.path, 
-            'stdout', 
+            v.path,
+            'stdout',
             'tsv', // Run in TSV output mode to collect word-by-word confidences
-            '-l', config.ocrLang,
-            '--psm', '4',
-            '-c', 'preserve_interword_spaces=1'
+            '-l',
+            config.ocrLang,
+            '--psm',
+            '4',
+            '-c',
+            'preserve_interword_spaces=1',
           ];
-          
+
           const { stdout } = await execFilePromise(config.tesseractPath, args, { env });
           const parsed = parseTsvToTextAndConfidence(stdout || '');
-          
-          console.log(`[OCR Service] Variant [${v.id}] finished. Avg Word Confidence: ${parsed.avgConf.toFixed(2)}% (Words: ${parsed.wordCount})`);
-          
+
+          console.log(
+            `[OCR Service] Variant [${v.id}] finished. Avg Word Confidence: ${parsed.avgConf.toFixed(2)}% (Words: ${parsed.wordCount})`
+          );
+
           return {
             id: v.id,
             path: v.path,
             text: parsed.text,
             avgConf: parsed.avgConf,
-            wordCount: parsed.wordCount
+            wordCount: parsed.wordCount,
           };
         } catch (error) {
           console.error(`[OCR Service] Tesseract failed for variant [${v.id}]:`, error.message);
@@ -338,22 +363,22 @@ export class OcrService {
             path: v.path,
             text: '',
             avgConf: 0,
-            wordCount: 0
+            wordCount: 0,
           };
         }
       });
-      
+
       ocrResults = await Promise.all(ocrPromises);
     } catch (error) {
       console.error('[OCR Service] Concurrent Tesseract processing failed:', error.message);
     }
-    
+
     const ocrTime = Date.now() - ocrStart;
 
     // Selection Logic: Choose the variant with the highest average confidence score.
     // Prefer variants with at least 5 words to prevent picking degenerate high-confidence 1-word variants.
     let bestResult = null;
-    const candidates = ocrResults.filter(r => r.wordCount >= 5);
+    const candidates = ocrResults.filter((r) => r.wordCount >= 5);
     const selectionPool = candidates.length > 0 ? candidates : ocrResults;
 
     if (selectionPool.length > 0) {
@@ -364,7 +389,9 @@ export class OcrService {
     const text = bestResult ? bestResult.text : '';
     const chosenVariant = bestResult ? bestResult.id : 'v1';
     const chosenConf = bestResult ? bestResult.avgConf : 0;
-    console.log(`[OCR Service] Selection complete: Chosen Variant [${chosenVariant}] with confidence ${chosenConf.toFixed(2)}%`);
+    console.log(
+      `[OCR Service] Selection complete: Chosen Variant [${chosenVariant}] with confidence ${chosenConf.toFixed(2)}%`
+    );
 
     // Clean up all temporary preprocessed image variants
     if (isTempProcessed) {
@@ -388,9 +415,13 @@ export class OcrService {
           ...preprocessMeta,
           chosen_variant: chosenVariant,
           chosen_confidence: chosenConf,
-          variants_tested: ocrResults.map(r => ({ id: r.id, avgConf: r.avgConf, wordCount: r.wordCount }))
-        }
-      }
+          variants_tested: ocrResults.map((r) => ({
+            id: r.id,
+            avgConf: r.avgConf,
+            wordCount: r.wordCount,
+          })),
+        },
+      },
     };
   }
 
@@ -401,7 +432,7 @@ export class OcrService {
    */
   async extractTextFromPdf(filePath) {
     console.log(`[OCR Service] Extracting text from PDF: ${filePath}`);
-    
+
     let text = '';
     try {
       const dataBuffer = await fs.readFile(filePath);
@@ -416,15 +447,17 @@ export class OcrService {
 
     // If the PDF is scanned or has little embedded text, convert it to images and run Tesseract OCR
     if (cleanedText.length < 50) {
-      console.log(`[OCR Service] Scanned or low-text PDF detected (${cleanedText.length} chars). Falling back to native Tesseract OCR...`);
+      console.log(
+        `[OCR Service] Scanned or low-text PDF detected (${cleanedText.length} chars). Falling back to native Tesseract OCR...`
+      );
       let tempDir = null;
       try {
         // Create unique temporary directory in uploads folder to respect workspace constraint
         const uploadsDir = path.dirname(filePath);
         tempDir = await fs.mkdtemp(path.join(uploadsDir, 'tmp-ocr-'));
-        
+
         console.log(`[OCR Service] Converting PDF to images in temporary directory: ${tempDir}`);
-        
+
         // Convert PDF to images using pdftoppm (1 image per page)
         const pdftoppmPath = process.env.PDFTOPPM_PATH || 'pdftoppm';
         const pdftoppmArgs = ['-png', '-r', '150', filePath, path.join(tempDir, 'page')];
@@ -433,14 +466,16 @@ export class OcrService {
         // Find and sort all generated page images numerically
         const files = await fs.readdir(tempDir);
         const pageImages = files
-          .filter(file => file.startsWith('page-') && file.endsWith('.png'))
+          .filter((file) => file.startsWith('page-') && file.endsWith('.png'))
           .sort((a, b) => {
             const numA = parseInt(a.replace('page-', '').replace('.png', ''), 10);
             const numB = parseInt(b.replace('page-', '').replace('.png', ''), 10);
             return numA - numB;
           });
 
-        console.log(`[OCR Service] Performing native Tesseract OCR on ${pageImages.length} extracted page images...`);
+        console.log(
+          `[OCR Service] Performing native Tesseract OCR on ${pageImages.length} extracted page images...`
+        );
         let ocrText = '';
         for (const img of pageImages) {
           const imgPath = path.join(tempDir, img);
@@ -451,7 +486,10 @@ export class OcrService {
 
         return ocrText.trim();
       } catch (ocrError) {
-        console.error(`[OCR Service] Failed to perform PDF OCR fallback for: ${filePath}`, ocrError.message);
+        console.error(
+          `[OCR Service] Failed to perform PDF OCR fallback for: ${filePath}`,
+          ocrError.message
+        );
         return text; // Return whatever partial text pdf-parse found
       } finally {
         // Clean up temporary image files and directories
@@ -464,7 +502,10 @@ export class OcrService {
             }
             await fs.rmdir(tempDir);
           } catch (cleanupError) {
-            console.warn(`[OCR Service] Cleanup failed for directory: ${tempDir}`, cleanupError.message);
+            console.warn(
+              `[OCR Service] Cleanup failed for directory: ${tempDir}`,
+              cleanupError.message
+            );
           }
         }
       }

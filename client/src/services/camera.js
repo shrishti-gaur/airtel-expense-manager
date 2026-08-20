@@ -1,38 +1,4 @@
-import { useState, useEffect } from 'react';
 
-/**
- * Hook to check if direct browser camera capture via getUserMedia is supported and a camera is available.
- */
-export const useCameraSupport = () => {
-  const [isSupported, setIsSupported] = useState(false);
-
-  useEffect(() => {
-    const checkSupport = async () => {
-      // 1. Check if getUserMedia is supported
-      const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-
-      // 2. Check if a video input device exists (if enumerateDevices is supported)
-      let hasCamera = false;
-      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-        try {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          hasCamera = devices.some(device => device.kind === 'videoinput');
-        } catch {
-          // If permission is denied or enumeration fails, fallback to capability check
-          hasCamera = true;
-        }
-      } else {
-        hasCamera = hasGetUserMedia;
-      }
-
-      setIsSupported(hasGetUserMedia && hasCamera);
-    };
-
-    checkSupport();
-  }, []);
-
-  return isSupported;
-};
 
 /**
  * Sanitizes a captured camera file by ensuring it's a standard File object

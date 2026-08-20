@@ -18,8 +18,8 @@ export class GeminiService {
     // 1. Run Local Extraction First
     const { values: localParsed, confidences } = localParserService.parse(rawText);
     const localParseTime = Date.now() - startLocal;
-    console.log(`[Local Parser Output]:`, JSON.stringify(localParsed, null, 2));
-    console.log(`[Local Parser Confidences]:`, JSON.stringify(confidences, null, 2));
+    console.log('[Local Parser Output]:', JSON.stringify(localParsed, null, 2));
+    console.log('[Local Parser Confidences]:', JSON.stringify(confidences, null, 2));
 
     // Determine target fields for Gemini extraction based on low confidence (< 0.8)
     const targetFields = [];
@@ -30,7 +30,7 @@ export class GeminiService {
     if (confidences.gst < 0.8) targetFields.push('gst');
     if (confidences.category < 0.8) targetFields.push('category');
     if (confidences.discount < 0.8) targetFields.push('discount');
-    
+
     // Also include other fields if they are missing/empty in local extraction
     if (!localParsed.gstin) targetFields.push('gstin');
     if (!localParsed.pan) targetFields.push('pan');
@@ -39,11 +39,14 @@ export class GeminiService {
     if (!localParsed.sgst) targetFields.push('sgst');
     if (!localParsed.igst) targetFields.push('igst');
     if (!localParsed.currency) targetFields.push('currency');
-    if (localParsed.discount === undefined || localParsed.discount === null) targetFields.push('discount');
+    if (localParsed.discount === undefined || localParsed.discount === null)
+      targetFields.push('discount');
 
     // If everything is high confidence, skip Gemini completely!
     if (targetFields.length === 0) {
-      console.log(`[Gemini Service] Bypassing Gemini API: Local parsing confidence is high for all fields.`);
+      console.log(
+        '[Gemini Service] Bypassing Gemini API: Local parsing confidence is high for all fields.'
+      );
       console.log(`[OCR Pipeline Local Parser Audit]:
 --------------------------------------------------
 - Local Parser Time:  ${localParseTime} ms
@@ -51,26 +54,32 @@ export class GeminiService {
 --------------------------------------------------`);
       return this.validateFinalOutput({
         ...localParsed,
-        confidence: 0.95
+        confidence: 0.95,
       });
     }
 
-    console.log(`[Gemini Service] Selective fields for Gemini extraction:`, targetFields);
+    console.log('[Gemini Service] Selective fields for Gemini extraction:', targetFields);
 
     // Limit/minimize the text payload sent to Gemini based on target fields
     let textPayload = '';
-    const hasOnlyTopFields = targetFields.every(field => ['merchantName', 'invoiceNumber', 'invoiceDate', 'currency'].includes(field));
-    const hasOnlyBottomFields = targetFields.every(field => ['amount', 'gst', 'subtotal', 'cgst', 'sgst', 'igst', 'discount'].includes(field));
-    
+    const hasOnlyTopFields = targetFields.every((field) =>
+      ['merchantName', 'invoiceNumber', 'invoiceDate', 'currency'].includes(field)
+    );
+    const hasOnlyBottomFields = targetFields.every((field) =>
+      ['amount', 'gst', 'subtotal', 'cgst', 'sgst', 'igst', 'discount'].includes(field)
+    );
+
     if (hasOnlyTopFields) {
       textPayload = rawText.slice(0, 1500);
-      console.log(`[Gemini Service] Token Optimization: Sending only top 1500 chars of OCR text.`);
+      console.log('[Gemini Service] Token Optimization: Sending only top 1500 chars of OCR text.');
     } else if (hasOnlyBottomFields) {
       textPayload = rawText.slice(-1500);
-      console.log(`[Gemini Service] Token Optimization: Sending only bottom 1500 chars of OCR text.`);
+      console.log(
+        '[Gemini Service] Token Optimization: Sending only bottom 1500 chars of OCR text.'
+      );
     } else {
       textPayload = rawText.slice(0, 4000);
-      console.log(`[Gemini Service] Token Optimization: Sending truncated 4000 chars of OCR text.`);
+      console.log('[Gemini Service] Token Optimization: Sending truncated 4000 chars of OCR text.');
     }
 
     // Mask sensitive fields in the payload we send to Gemini
@@ -81,17 +90,21 @@ export class GeminiService {
     const payloadTokens = estimateTokens(maskedPayloadText);
     const originalTokens = estimateTokens(rawText);
     const tokenReduction = originalTokens - payloadTokens;
-    console.log(`[Gemini Service] Token Reduction Achieved: Saved ${tokenReduction} tokens (Original: ${originalTokens}, Sent: ${payloadTokens})`);
+    console.log(
+      `[Gemini Service] Token Reduction Achieved: Saved ${tokenReduction} tokens (Original: ${originalTokens}, Sent: ${payloadTokens})`
+    );
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.warn('[Gemini Service] GEMINI_API_KEY is not configured in .env. Returning local parser results.');
+      console.warn(
+        '[Gemini Service] GEMINI_API_KEY is not configured in .env. Returning local parser results.'
+      );
       return localParsed;
     }
 
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      
+
       // Dynamically construct response schema
       const allProperties = {
         merchantName: { type: 'STRING' },
@@ -111,7 +124,10 @@ export class GeminiService {
       };
 
       const properties = {
-        confidence: { type: 'NUMBER', description: 'Overall extraction confidence for requested fields (0.0 to 1.0)' }
+        confidence: {
+          type: 'NUMBER',
+          description: 'Overall extraction confidence for requested fields (0.0 to 1.0)',
+        },
       };
       const required = ['confidence'];
 
@@ -175,7 +191,7 @@ ${maskedPayloadText}
       const finalJson = {
         ...localParsed,
         ...parsedJson,
-        confidence: parsedJson.confidence !== undefined ? parsedJson.confidence : 0.85
+        confidence: parsedJson.confidence !== undefined ? parsedJson.confidence : 0.85,
       };
 
       // Restore unmasked sensitive fields if Gemini returned them masked
@@ -208,19 +224,25 @@ ${maskedPayloadText}
 
     // Rule 1: GST cannot be greater than amount
     if (finalAmount > 0 && finalGst > finalAmount) {
-      console.warn(`[Gemini Service Audit] Mathematical validation failed: GST (${finalGst}) is greater than Amount (${finalAmount})`);
+      console.warn(
+        `[Gemini Service Audit] Mathematical validation failed: GST (${finalGst}) is greater than Amount (${finalAmount})`
+      );
       isFinalInconsistent = true;
     }
 
     // Rule 2: CGST and SGST must be equal (allow small rounding diff <= 1.0)
     if (finalCgst > 0 && finalSgst > 0 && Math.abs(finalCgst - finalSgst) > 1.0) {
-      console.warn(`[Gemini Service Audit] Mathematical validation failed: CGST (${finalCgst}) does not match SGST (${finalSgst})`);
+      console.warn(
+        `[Gemini Service Audit] Mathematical validation failed: CGST (${finalCgst}) does not match SGST (${finalSgst})`
+      );
       isFinalInconsistent = true;
     }
 
     // Rule 3: Cannot have both IGST and CGST/SGST
     if (finalIgst > 0 && (finalCgst > 0 || finalSgst > 0)) {
-      console.warn(`[Gemini Service Audit] Mathematical validation failed: Cannot have both IGST (${finalIgst}) and CGST/SGST (${finalCgst}/${finalSgst})`);
+      console.warn(
+        `[Gemini Service Audit] Mathematical validation failed: Cannot have both IGST (${finalIgst}) and CGST/SGST (${finalCgst}/${finalSgst})`
+      );
       isFinalInconsistent = true;
     }
 
@@ -229,7 +251,9 @@ ${maskedPayloadText}
       const calculatedTotal = finalSubtotal + finalGst - finalDiscount;
       const difference = Math.abs(calculatedTotal - finalAmount);
       if (difference > 1.0) {
-        console.warn(`[Gemini Service Audit] Mathematical validation failed! Subtotal (${finalSubtotal}) + GST (${finalGst}) - Discount (${finalDiscount}) = ${calculatedTotal}, but Grand Total is ${finalAmount}. Diff: ${difference}`);
+        console.warn(
+          `[Gemini Service Audit] Mathematical validation failed! Subtotal (${finalSubtotal}) + GST (${finalGst}) - Discount (${finalDiscount}) = ${calculatedTotal}, but Grand Total is ${finalAmount}. Diff: ${difference}`
+        );
         isFinalInconsistent = true;
       }
     }
@@ -237,7 +261,7 @@ ${maskedPayloadText}
     if (isFinalInconsistent) {
       return {
         ...json,
-        confidence: 0.0
+        confidence: 0.0,
       };
     }
 

@@ -3,9 +3,9 @@ import { execSync } from 'child_process';
 
 // Load variables from .env
 dotenv.config();
-console.log("dotenv result:", dotenv.config());
-console.log("cwd:", process.cwd());
-console.log("Gemini:", process.env.GEMINI_API_KEY);
+console.log('dotenv result:', dotenv.config());
+console.log('cwd:', process.cwd());
+console.log('Gemini:', process.env.GEMINI_API_KEY);
 const requiredEnvVars = ['PORT', 'MONGODB_URI', 'JWT_SECRET'];
 
 const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);

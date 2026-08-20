@@ -35,9 +35,15 @@ export class ExpenseService {
 
     // Dynamically calculate invoiceFingerprint if not provided but values exist
     if (!invoiceFingerprint) {
-      const normMerchant = String(claimData.merchant || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      const normInvoiceNo = String(claimData.invoiceNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      
+      const normMerchant = String(claimData.merchant || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+      const normInvoiceNo = String(claimData.invoiceNumber || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+
       let normDate = '';
       const invoiceDateVal = claimData.invoiceDate || claimData.date;
       if (invoiceDateVal) {
@@ -46,14 +52,23 @@ export class ExpenseService {
           if (!isNaN(d.getTime())) {
             normDate = d.toISOString().split('T')[0];
           } else {
-            normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+            normDate = String(invoiceDateVal)
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, '')
+              .trim();
           }
         } catch (e) {
-          normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          normDate = String(invoiceDateVal)
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '')
+            .trim();
         }
       }
 
-      const normAmount = claimData.amount !== undefined && claimData.amount !== null ? Number(claimData.amount).toFixed(2) : '0.00';
+      const normAmount =
+        claimData.amount !== undefined && claimData.amount !== null
+          ? Number(claimData.amount).toFixed(2)
+          : '0.00';
 
       if (normMerchant && normDate && claimData.amount !== undefined && claimData.amount !== null) {
         const rawString = `${normMerchant}|${normInvoiceNo}|${normDate}|${normAmount}`;
@@ -61,7 +76,7 @@ export class ExpenseService {
       }
     }
 
-    console.log(`[Duplicate Check] Checking claim creation duplicates...`);
+    console.log('[Duplicate Check] Checking claim creation duplicates...');
     console.log(`[Duplicate Check] Generated receiptHash: ${receiptHash || 'null'}`);
     console.log(`[Duplicate Check] Generated invoiceFingerprint: ${invoiceFingerprint || 'null'}`);
 
@@ -69,8 +84,8 @@ export class ExpenseService {
       console.log(`[Duplicate Check] Running MongoDB query: { receiptHash: "${receiptHash}" }`);
       const existingHash = await ExpenseClaim.findOne({ receiptHash });
       if (existingHash) {
-        console.log(`[Duplicate Check] Duplicate found: YES`);
-        console.log(`[Duplicate Check] Duplicate Type: Exact File Match`);
+        console.log('[Duplicate Check] Duplicate found: YES');
+        console.log('[Duplicate Check] Duplicate Type: Exact File Match');
         console.log(`[Duplicate Check] Existing Claim ID: ${existingHash.id}`);
         const err = new Error('Duplicate Receipt Detected');
         err.code = 'DUPLICATE_RECEIPT';
@@ -79,20 +94,22 @@ export class ExpenseService {
         err.existingClaim = {
           id: existingHash.id,
           submissionDate: existingHash.submissionDate || existingHash.createdAt,
-          employeeName: existingHash.employeeName || 'Unknown Employee'
+          employeeName: existingHash.employeeName || 'Unknown Employee',
         };
         throw err;
       } else {
-        console.log(`[Duplicate Check] Duplicate found: NO`);
+        console.log('[Duplicate Check] Duplicate found: NO');
       }
     }
 
     if (invoiceFingerprint) {
-      console.log(`[Duplicate Check] Running MongoDB query: { invoiceFingerprint: "${invoiceFingerprint}" }`);
+      console.log(
+        `[Duplicate Check] Running MongoDB query: { invoiceFingerprint: "${invoiceFingerprint}" }`
+      );
       const existingFingerprint = await ExpenseClaim.findOne({ invoiceFingerprint });
       if (existingFingerprint) {
-        console.log(`[Duplicate Check] Duplicate found: YES`);
-        console.log(`[Duplicate Check] Duplicate Type: Invoice Match`);
+        console.log('[Duplicate Check] Duplicate found: YES');
+        console.log('[Duplicate Check] Duplicate Type: Invoice Match');
         console.log(`[Duplicate Check] Existing Claim ID: ${existingFingerprint.id}`);
         const err = new Error('Duplicate Receipt Detected');
         err.code = 'DUPLICATE_RECEIPT';
@@ -101,11 +118,11 @@ export class ExpenseService {
         err.existingClaim = {
           id: existingFingerprint.id,
           submissionDate: existingFingerprint.submissionDate || existingFingerprint.createdAt,
-          employeeName: existingFingerprint.employeeName || 'Unknown Employee'
+          employeeName: existingFingerprint.employeeName || 'Unknown Employee',
         };
         throw err;
       } else {
-        console.log(`[Duplicate Check] Duplicate found: NO`);
+        console.log('[Duplicate Check] Duplicate found: NO');
       }
     }
 
@@ -122,14 +139,42 @@ export class ExpenseService {
       id: claimId,
       employeeId: userId,
       employeeName: empName,
-      title: claimData.title || claimData.description?.split('.')[0] || 'Expense Claim',
+      title: claimData.title || (claimData.expenseCategory || claimData.category ? `${claimData.expenseCategory || claimData.category} Claim` : 'Expense Claim'),
       status,
-      amount: Number(claimData.amount),
-      invoiceDate: claimData.invoiceDate
-        ? new Date(claimData.invoiceDate)
-        : claimData.date
-          ? new Date(claimData.date)
-          : new Date(),
+      
+      // Category / Type mappings
+      category: claimData.expenseCategory || claimData.category || '',
+      expenseCategory: claimData.expenseCategory || claimData.category || '',
+      subcategory: claimData.expenseType || claimData.subcategory || '',
+      expenseType: claimData.expenseType || claimData.subcategory || '',
+      
+      // Conveyance mappings
+      submissionMethod: claimData.submissionMethod || (claimData.conveyanceMethod === 'Per Kilometer' ? 'PER_KM' : (claimData.conveyanceMethod === 'Receipt Based' ? 'RECEIPT_BASED' : null)),
+      conveyanceMethod: claimData.submissionMethod === 'PER_KM' ? 'Per Kilometer' : (claimData.submissionMethod === 'RECEIPT_BASED' ? 'Receipt Based' : (claimData.conveyanceMethod || '')),
+      tripDistance:
+        claimData.tripDistance !== undefined &&
+        claimData.tripDistance !== null &&
+        claimData.tripDistance !== ''
+          ? Number(claimData.tripDistance)
+          : null,
+      distanceRate:
+        claimData.distanceRate !== undefined &&
+        claimData.distanceRate !== null &&
+        claimData.distanceRate !== ''
+          ? Number(claimData.distanceRate)
+          : null,
+      unitOfMeasure: claimData.unitOfMeasure || 'KM',
+      
+      // Amount mappings
+      reimbursementAmount: Number(claimData.reimbursementAmount !== undefined ? claimData.reimbursementAmount : claimData.amount),
+      amount: Number(claimData.reimbursementAmount !== undefined ? claimData.reimbursementAmount : claimData.amount),
+      receiptAmount: claimData.receiptAmount !== undefined ? Number(claimData.receiptAmount) : (claimData.submissionMethod === 'PER_KM' ? 0 : Number(claimData.reimbursementAmount !== undefined ? claimData.reimbursementAmount : claimData.amount)),
+      
+      // Date mappings
+      date: claimData.date ? new Date(claimData.date) : (claimData.invoiceDate ? new Date(claimData.invoiceDate) : (claimData.startDate ? new Date(claimData.startDate) : new Date())),
+      startDate: claimData.startDate ? new Date(claimData.startDate) : (claimData.submissionMethod === 'PER_KM' || claimData.conveyanceMethod === 'Per Kilometer' ? new Date(claimData.date || claimData.invoiceDate || new Date()) : null),
+      invoiceDate: claimData.date ? new Date(claimData.date) : (claimData.invoiceDate ? new Date(claimData.invoiceDate) : (claimData.startDate ? new Date(claimData.startDate) : new Date())),
+
       submissionDate:
         status === 'Submitted'
           ? new Date()
@@ -140,17 +185,18 @@ export class ExpenseService {
       invoiceNumber: claimData.invoiceNumber || '',
       currency: claimData.currency || 'INR',
       tax: claimData.tax ? Number(claimData.tax) : 0,
-      category: claimData.category || '',
       department: empDept,
       costCenter: empCostCenter,
       projectCode: claimData.projectCode || '',
-      expenseType: claimData.expenseType || 'Reimbursable',
-      description: claimData.description || '',
+      expenseTypeLegacy: claimData.expenseTypeLegacy || 'Reimbursable',
       receiptUrl: normalizeDbReceiptUrl(claimData.receiptUrl),
       fileName: claimData.fileName || '',
       fileType: claimData.fileType || '',
       fileSize: claimData.fileSize ? Number(claimData.fileSize) : null,
-      ocrOverallScore: (claimData.ocrOverallScore !== undefined && claimData.ocrOverallScore !== null) ? Number(claimData.ocrOverallScore) : null,
+      ocrOverallScore:
+        claimData.ocrOverallScore !== undefined && claimData.ocrOverallScore !== null
+          ? Number(claimData.ocrOverallScore)
+          : null,
       ocrTimestamp: claimData.ocrTimestamp ? new Date(claimData.ocrTimestamp) : null,
       ocrConfidence: claimData.ocrConfidence || null,
       receiptHash: receiptHash || '',
@@ -227,21 +273,65 @@ export class ExpenseService {
     // Determine status change
     const originalStatus = claim.status;
     const nextStatus = claimData.status || originalStatus;
+    
+    // Sync category / type
+    const newCategory = claimData.expenseCategory || claimData.category || claim.expenseCategory || claim.category;
+    claim.category = newCategory;
+    claim.expenseCategory = newCategory;
+    
+    const newSubcat = claimData.expenseType || claimData.subcategory || claim.expenseType || claim.subcategory;
+    claim.subcategory = newSubcat;
+    claim.expenseType = newSubcat;
+    
+    // Sync conveyance methods
+    const newMethod = claimData.submissionMethod || (claimData.conveyanceMethod === 'Per Kilometer' ? 'PER_KM' : (claimData.conveyanceMethod === 'Receipt Based' ? 'RECEIPT_BASED' : null)) || claim.submissionMethod;
+    claim.submissionMethod = newMethod;
+    claim.conveyanceMethod = newMethod === 'PER_KM' ? 'Per Kilometer' : (newMethod === 'RECEIPT_BASED' ? 'Receipt Based' : (claimData.conveyanceMethod || claim.conveyanceMethod || ''));
 
-    // Update allowable fields
-    claim.title = claimData.title || claimData.description?.split('.')[0] || claim.title;
-    claim.amount = claimData.amount !== undefined ? Number(claimData.amount) : claim.amount;
-    claim.invoiceDate = claimData.invoiceDate ? new Date(claimData.invoiceDate) : claim.invoiceDate;
+    claim.tripDistance =
+      claimData.tripDistance !== undefined ? (claimData.tripDistance !== '' && claimData.tripDistance !== null ? Number(claimData.tripDistance) : null) : claim.tripDistance;
+    claim.distanceRate =
+      claimData.distanceRate !== undefined ? (claimData.distanceRate !== '' && claimData.distanceRate !== null ? Number(claimData.distanceRate) : null) : claim.distanceRate;
+    claim.unitOfMeasure =
+      claimData.unitOfMeasure !== undefined ? claimData.unitOfMeasure : claim.unitOfMeasure;
+
+    // Sync dates
+    if (claimData.date) claim.date = new Date(claimData.date);
+    if (claimData.startDate) claim.startDate = new Date(claimData.startDate);
+    if (claimData.invoiceDate) claim.invoiceDate = new Date(claimData.invoiceDate);
+    
+    // Fallback sync dates
+    if (claimData.date || claimData.invoiceDate || claimData.startDate) {
+      const activeDate = claim.date || claim.invoiceDate || claim.startDate;
+      claim.date = activeDate;
+      claim.invoiceDate = activeDate;
+      if (claim.submissionMethod === 'PER_KM' && !claim.startDate) {
+        claim.startDate = activeDate;
+      }
+    }
+
+    // Sync amounts
+    const newReimbAmount = claimData.reimbursementAmount !== undefined ? Number(claimData.reimbursementAmount) : (claimData.amount !== undefined ? Number(claimData.amount) : null);
+    if (newReimbAmount !== null) {
+      claim.reimbursementAmount = newReimbAmount;
+      claim.amount = newReimbAmount;
+    }
+    
+    if (claimData.receiptAmount !== undefined) {
+      claim.receiptAmount = Number(claimData.receiptAmount);
+    } else if (newReimbAmount !== null) {
+      claim.receiptAmount = claim.submissionMethod === 'PER_KM' ? 0 : newReimbAmount;
+    }
+
+    claim.title = claimData.title || (newCategory ? `${newCategory} Claim` : claim.title);
     claim.merchant = claimData.merchant !== undefined ? claimData.merchant : claim.merchant;
     claim.invoiceNumber =
       claimData.invoiceNumber !== undefined ? claimData.invoiceNumber : claim.invoiceNumber;
     claim.currency = claimData.currency || claim.currency;
     claim.tax = claimData.tax !== undefined ? Number(claimData.tax) : claim.tax;
-    claim.category = claimData.category || claim.category;
     claim.projectCode =
       claimData.projectCode !== undefined ? claimData.projectCode : claim.projectCode;
-    claim.expenseType = claimData.expenseType || claim.expenseType;
-    claim.description = claimData.description || claim.description;
+    claim.expenseTypeLegacy = claimData.expenseTypeLegacy || claim.expenseTypeLegacy;
     claim.employeeNotes =
       claimData.employeeNotes !== undefined ? claimData.employeeNotes : claim.employeeNotes;
 
@@ -256,13 +346,20 @@ export class ExpenseService {
     // Dynamically calculate invoiceFingerprint if not provided but values exist
     if (!claimData.invoiceFingerprint) {
       const merchantVal = claimData.merchant !== undefined ? claimData.merchant : claim.merchant;
-      const invoiceNoVal = claimData.invoiceNumber !== undefined ? claimData.invoiceNumber : claim.invoiceNumber;
+      const invoiceNoVal =
+        claimData.invoiceNumber !== undefined ? claimData.invoiceNumber : claim.invoiceNumber;
       const invoiceDateVal = claimData.invoiceDate || claim.invoiceDate;
       const amountVal = claimData.amount !== undefined ? claimData.amount : claim.amount;
 
-      const normMerchant = String(merchantVal || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      const normInvoiceNo = String(invoiceNoVal || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      
+      const normMerchant = String(merchantVal || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+      const normInvoiceNo = String(invoiceNoVal || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+
       let normDate = '';
       if (invoiceDateVal) {
         try {
@@ -270,14 +367,21 @@ export class ExpenseService {
           if (!isNaN(d.getTime())) {
             normDate = d.toISOString().split('T')[0];
           } else {
-            normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+            normDate = String(invoiceDateVal)
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, '')
+              .trim();
           }
         } catch (e) {
-          normDate = String(invoiceDateVal).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          normDate = String(invoiceDateVal)
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '')
+            .trim();
         }
       }
 
-      const normAmount = amountVal !== undefined && amountVal !== null ? Number(amountVal).toFixed(2) : '0.00';
+      const normAmount =
+        amountVal !== undefined && amountVal !== null ? Number(amountVal).toFixed(2) : '0.00';
 
       if (normMerchant && normDate && amountVal !== undefined && amountVal !== null) {
         const rawString = `${normMerchant}|${normInvoiceNo}|${normDate}|${normAmount}`;
@@ -290,11 +394,13 @@ export class ExpenseService {
     console.log(`[Duplicate Check] invoiceFingerprint to check: ${invoiceFingerprint || 'null'}`);
 
     if (receiptHash) {
-      console.log(`[Duplicate Check] Running MongoDB query: { receiptHash: "${receiptHash}", id: { $ne: "${claimId}" } }`);
+      console.log(
+        `[Duplicate Check] Running MongoDB query: { receiptHash: "${receiptHash}", id: { $ne: "${claimId}" } }`
+      );
       const existingHash = await ExpenseClaim.findOne({ receiptHash, id: { $ne: claimId } });
       if (existingHash) {
-        console.log(`[Duplicate Check] Duplicate found: YES`);
-        console.log(`[Duplicate Check] Duplicate Type: Exact File Match`);
+        console.log('[Duplicate Check] Duplicate found: YES');
+        console.log('[Duplicate Check] Duplicate Type: Exact File Match');
         console.log(`[Duplicate Check] Existing Claim ID: ${existingHash.id}`);
         const err = new Error('Duplicate Receipt Detected');
         err.code = 'DUPLICATE_RECEIPT';
@@ -303,20 +409,25 @@ export class ExpenseService {
         err.existingClaim = {
           id: existingHash.id,
           submissionDate: existingHash.submissionDate || existingHash.createdAt,
-          employeeName: existingHash.employeeName || 'Unknown Employee'
+          employeeName: existingHash.employeeName || 'Unknown Employee',
         };
         throw err;
       } else {
-        console.log(`[Duplicate Check] Duplicate found: NO`);
+        console.log('[Duplicate Check] Duplicate found: NO');
       }
     }
 
     if (invoiceFingerprint) {
-      console.log(`[Duplicate Check] Running MongoDB query: { invoiceFingerprint: "${invoiceFingerprint}", id: { $ne: "${claimId}" } }`);
-      const existingFingerprint = await ExpenseClaim.findOne({ invoiceFingerprint, id: { $ne: claimId } });
+      console.log(
+        `[Duplicate Check] Running MongoDB query: { invoiceFingerprint: "${invoiceFingerprint}", id: { $ne: "${claimId}" } }`
+      );
+      const existingFingerprint = await ExpenseClaim.findOne({
+        invoiceFingerprint,
+        id: { $ne: claimId },
+      });
       if (existingFingerprint) {
-        console.log(`[Duplicate Check] Duplicate found: YES`);
-        console.log(`[Duplicate Check] Duplicate Type: Invoice Match`);
+        console.log('[Duplicate Check] Duplicate found: YES');
+        console.log('[Duplicate Check] Duplicate Type: Invoice Match');
         console.log(`[Duplicate Check] Existing Claim ID: ${existingFingerprint.id}`);
         const err = new Error('Duplicate Receipt Detected');
         err.code = 'DUPLICATE_RECEIPT';
@@ -325,11 +436,11 @@ export class ExpenseService {
         err.existingClaim = {
           id: existingFingerprint.id,
           submissionDate: existingFingerprint.submissionDate || existingFingerprint.createdAt,
-          employeeName: existingFingerprint.employeeName || 'Unknown Employee'
+          employeeName: existingFingerprint.employeeName || 'Unknown Employee',
         };
         throw err;
       } else {
-        console.log(`[Duplicate Check] Duplicate found: NO`);
+        console.log('[Duplicate Check] Duplicate found: NO');
       }
     }
 

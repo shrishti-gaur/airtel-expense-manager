@@ -31,7 +31,7 @@ function normalizePayload(obj, req) {
   if (obj === null || obj === undefined) return obj;
 
   if (Array.isArray(obj)) {
-    return obj.map(item => normalizePayload(item, req));
+    return obj.map((item) => normalizePayload(item, req));
   }
 
   if (typeof obj === 'object') {

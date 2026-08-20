@@ -14,7 +14,7 @@ export const runPendingClaimsCheck = async () => {
     // Find claims that are 'Submitted' and submitted/updated more than 7 days ago
     const pendingClaims = await ExpenseClaim.find({
       status: 'Submitted',
-      submissionDate: { $lte: sevenDaysAgo }
+      submissionDate: { $lte: sevenDaysAgo },
     });
 
     console.log(`[Scheduler] Found ${pendingClaims.length} pending claims needing reminder.`);
@@ -24,11 +24,13 @@ export const runPendingClaimsCheck = async () => {
       const existingReminder = await Notification.findOne({
         userId: 'mgr_456',
         claimId: claim.id,
-        title: 'Action Required: Pending Expense Review'
+        title: 'Action Required: Pending Expense Review',
       });
 
       if (!existingReminder) {
-        console.log(`[Scheduler] Generating 7-day warning reminder for claim ${claim.id} to manager`);
+        console.log(
+          `[Scheduler] Generating 7-day warning reminder for claim ${claim.id} to manager`
+        );
         const notificationId = `NOTIF-REMINDER-${claim.id}-${Date.now()}`;
         await Notification.create({
           id: notificationId,
@@ -55,5 +57,5 @@ export const schedulerService = {
 
     // Check periodically every hour (3600000 ms)
     setInterval(runPendingClaimsCheck, 3600000);
-  }
+  },
 };

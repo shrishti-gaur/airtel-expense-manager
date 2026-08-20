@@ -25,7 +25,7 @@ const testCases = [
       gst: 90,
       discount: 50,
       category: 'Meals & Entertainment',
-    }
+    },
   },
   {
     name: 'Travel & Flights (IndiGo Flight)',
@@ -46,7 +46,7 @@ const testCases = [
       amount: 6280,
       gst: 1280,
       category: 'Travel',
-    }
+    },
   },
   {
     name: 'Hotel & Lodging Stay (Taj Hotel)',
@@ -67,7 +67,7 @@ const testCases = [
       amount: 3360,
       gst: 360,
       category: 'Accommodation',
-    }
+    },
   },
   {
     name: 'Fuel Refuel (HPCL Fuel pump)',
@@ -85,7 +85,7 @@ const testCases = [
       rate: 104.2,
       amount: 3699.1,
       category: 'Utilities',
-    }
+    },
   },
   {
     name: 'Telecom Bill (Airtel Broadband)',
@@ -106,7 +106,7 @@ const testCases = [
       amount: 1062,
       gst: 162,
       category: 'Internet & Communications',
-    }
+    },
   },
   {
     name: 'Office Supplies (Decathlon Paper)',
@@ -125,7 +125,7 @@ const testCases = [
       invoiceNumber: 'DEC-325',
       amount: 1200,
       category: 'Office Supplies',
-    }
+    },
   },
   {
     name: 'Zero-Tax Invoice (Airtel Broadband NIL Tax)',
@@ -149,7 +149,7 @@ const testCases = [
     },
     expectedConfidences: {
       gst: 0.8,
-    }
+    },
   },
   {
     name: 'Inconsistent Tax (CGST != SGST)',
@@ -171,7 +171,7 @@ const testCases = [
     expectedConfidences: {
       amount: 0,
       gst: 0,
-    }
+    },
   },
   {
     name: 'Exclude Unrelated Amounts (Invoice No / GSTIN)',
@@ -191,7 +191,7 @@ const testCases = [
     },
     expectedConfidences: {
       gst: 0,
-    }
+    },
   },
   {
     name: 'Avoid Weak Keyword Match (Training Course)',
@@ -205,7 +205,7 @@ const testCases = [
     expected: {
       amount: 5000,
       category: 'Unknown / Needs Review',
-    }
+    },
   },
   {
     name: 'Avoid Weak Keyword Match (Cabinet Expense)',
@@ -218,7 +218,7 @@ const testCases = [
     expected: {
       amount: 4000,
       category: 'Office Supplies',
-    }
+    },
   },
   {
     name: 'Travel Invoice with Arrival/Departure dates (Flight Booking)',
@@ -234,7 +234,7 @@ const testCases = [
     expected: {
       amount: 4500,
       category: 'Travel',
-    }
+    },
   },
   {
     name: 'Office Supplies Item Check (Toner & Binder)',
@@ -247,7 +247,7 @@ const testCases = [
     expected: {
       amount: 1200,
       category: 'Office Supplies',
-    }
+    },
   },
   {
     name: 'Travel Item Check (Shuttle & Luggage)',
@@ -260,8 +260,8 @@ const testCases = [
     expected: {
       amount: 350,
       category: 'Travel',
-    }
-  }
+    },
+  },
 ];
 
 function runTestSuite() {
@@ -280,13 +280,20 @@ function runTestSuite() {
     const val = result.values;
     const conf = result.confidences;
 
-    const categoryInfo = localParserService.classifyCategoryLocally(tc.expected.merchantName || val.merchantName || '', tc.text);
+    const categoryInfo = localParserService.classifyCategoryLocally(
+      tc.expected.merchantName || val.merchantName || '',
+      tc.text
+    );
 
-    console.log(`[Evidence Category Audit Log]`);
+    console.log('[Evidence Category Audit Log]');
     console.log(`- Expected Category: "${tc.expected.category || 'N/A'}"`);
-    console.log(`- Selected Category: "${val.category}" (Score: ${categoryInfo.score}, Confidence: ${categoryInfo.confidence})`);
-    console.log(`- Category Scores:`, JSON.stringify(categoryInfo.scores));
-    console.log(`- Extracted: Amount: ${val.amount} (Expected: ${tc.expected.amount || 'N/A'}), GST: ${val.gst} (Expected: ${tc.expected.gst !== undefined ? tc.expected.gst : 'N/A'})`);
+    console.log(
+      `- Selected Category: "${val.category}" (Score: ${categoryInfo.score}, Confidence: ${categoryInfo.confidence})`
+    );
+    console.log('- Category Scores:', JSON.stringify(categoryInfo.scores));
+    console.log(
+      `- Extracted: Amount: ${val.amount} (Expected: ${tc.expected.amount || 'N/A'}), GST: ${val.gst} (Expected: ${tc.expected.gst !== undefined ? tc.expected.gst : 'N/A'})`
+    );
 
     let testFailed = false;
     const failures = [];
@@ -324,10 +331,10 @@ function runTestSuite() {
 
     if (testFailed) {
       console.log('❌ FAILED');
-      failures.forEach(f => console.log(`   - ${f}`));
+      failures.forEach((f) => console.log(`   - ${f}`));
     } else {
       console.log('✅ PASSED');
-      console.log(`   Parsed Data:`, JSON.stringify(val, null, 2));
+      console.log('   Parsed Data:', JSON.stringify(val, null, 2));
       passedTests++;
     }
   });
@@ -335,7 +342,7 @@ function runTestSuite() {
   console.log('\n==================================================');
   console.log(`TEST SUITE COMPLETE: ${passedTests}/${totalTests} PASSED`);
   console.log('==================================================');
-  
+
   if (passedTests !== totalTests) {
     process.exit(1);
   }

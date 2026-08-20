@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/loaders/LoadingSpinner';
@@ -17,12 +18,14 @@ import {
   Eye,
   ArrowLeft,
   DollarSign,
-  Briefcase
+  Briefcase,
+  User
 } from 'lucide-react';
 
 const FinanceDashboard = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [selectedClaims, setSelectedClaims] = useState([]);
   const [processing, setProcessing] = useState(false);
 
@@ -330,7 +333,12 @@ const FinanceDashboard = () => {
                       </td>
                       <td className="py-4 px-4 text-left">
                         <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                          {claim.category}
+                          <div>
+                            <div>{claim.category}</div>
+                            {claim.subcategory && (
+                              <div className="text-[10px] text-slate-400 font-normal font-sans mt-0.5">{claim.subcategory}</div>
+                            )}
+                          </div>
                           {claim.ocrOverallScore !== null && claim.ocrOverallScore !== undefined && (
                             <span className={`inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded border select-none ${
                               claim.ocrOverallScore >= 90
@@ -343,7 +351,6 @@ const FinanceDashboard = () => {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{claim.description}</p>
                       </td>
                       <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
                       <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
@@ -466,6 +473,10 @@ const FinanceDashboard = () => {
   }
 
   // 3. DEFAULT DASHBOARD VIEW
+  const latestClaim = claims.length > 0
+    ? [...claims].sort((a, b) => new Date(b.submissionDate || b.createdAt) - new Date(a.submissionDate || a.createdAt))[0]
+    : null;
+
   return (
     <div className="space-y-8 animate-fade-in font-sans">
       {/* Welcome Header */}
@@ -539,123 +550,128 @@ const FinanceDashboard = () => {
       </div>
 
       {/* Bulk Disbursements Actions */}
-      <Card
-        title="Recent Approved Claims Queue"
-        headerAction={
-          selectedClaims.length > 0 && (
+      {/* Redesigned Info & Activity Layout */}
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Finance Profile Card */}
+        <Card title="Finance Profile">
+          <div className="space-y-4 text-sm font-sans pt-1">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Controller Name</span>
+              <span className="font-extrabold text-slate-800">{user?.name || 'David Finance'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">OLM ID</span>
+              <span className="font-bold text-slate-800 font-mono">{user?.id?.toUpperCase() || 'FIN_789'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Cost Centre</span>
+              <span className="font-extrabold text-slate-800">{user?.costCenter || 'CC-FIN-789'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Role</span>
+              <span className="font-extrabold text-slate-800">Finance Controller</span>
+            </div>
+            <div className="flex justify-between items-center pb-1">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Scope</span>
+              <span className="font-extrabold text-slate-800">Corporate Treasury & Audit GL</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Latest Team Claim Activity Card */}
+        <Card
+          title="Latest Claim Activity"
+          headerAction={
             <Button
-              variant="primary"
+              variant="outline"
               size="sm"
-              onClick={handleBulkDisbursement}
-              className="flex items-center gap-1.5 shadow-sm animate-fade-in"
+              onClick={() => navigate('/finance/audit')}
+              className="flex items-center gap-1.5 font-bold shadow-sm"
             >
-              <CreditCard className="h-4 w-4" />
-              Disburse {selectedClaims.length} Claims
+              <ShieldCheck className="h-4 w-4" />
+              View Queue
             </Button>
-          )
-        }
-      >
-        {pendingPayouts.length === 0 ? (
-          <div className="py-8 text-center text-slate-500">
-            <Check className="mx-auto h-12 w-12 text-emerald-500 mb-2" />
-            <p className="font-semibold">All payouts disbursed</p>
-            <p className="text-xs text-slate-400 mt-1">Pending payments queue is empty.</p>
+          }
+        >
+          {latestClaim ? (
+            <div className="space-y-4 text-sm font-sans pt-1">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Employee</span>
+                <span className="font-extrabold text-slate-800">{latestClaim.employeeName || latestClaim.employee || 'Unknown Employee'}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Claim ID & Title</span>
+                <div className="text-right">
+                  <span className="font-mono text-slate-500 font-semibold mr-2">{latestClaim.id}</span>
+                  <span className="font-extrabold text-slate-800">{latestClaim.title}</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Category</span>
+                <span className="font-extrabold text-slate-800">
+                  {latestClaim.category}
+                  {latestClaim.subcategory && <span className="text-xs font-normal text-slate-400 ml-1">({latestClaim.subcategory})</span>}
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Amount</span>
+                <span className="font-extrabold text-slate-800">₹{latestClaim.amount.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Status</span>
+                <StatusBadge status={latestClaim.status} />
+              </div>
+              <div className="flex justify-between items-center pb-1">
+                <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Actions</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hover:border-slate-400 hover:bg-slate-50 text-slate-700 flex items-center gap-1 py-1 h-auto"
+                  onClick={() => handleRowClick(latestClaim)}
+                >
+                  <Eye className="h-3 w-3" />
+                  Audit Claim
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 font-sans">
+              <ShieldCheck className="h-10 w-10 mb-2 opacity-40 text-slate-500" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">No claims to audit</span>
+              <p className="text-[11px] text-slate-400 mt-1 max-w-[200px]">
+                No claims are currently pending finance audit.
+              </p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* How to Process Payouts Card (Instructions) */}
+      <Card title="How to Process Payouts">
+        <div className="grid gap-8 grid-cols-1 md:grid-cols-2 text-sm text-slate-600 font-sans pt-1">
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+              Audit Checklist
+            </h4>
+            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
+              <li>Inspect manager approvals, OCR validation scores, and compliance indicators.</li>
+              <li>Verify that claims do not violate corporate guidelines (e.g. invalid tax receipts).</li>
+              <li>Examine specific transaction lines for discrepancies or blacklisted merchants.</li>
+            </ul>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-4 w-12" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={toggleSelectAll}
-                      className="text-slate-500 hover:text-red-600 cursor-pointer"
-                    >
-                      {selectedClaims.length === pendingPayouts.length ? (
-                        <CheckSquare className="h-5 w-5 text-red-600" />
-                      ) : (
-                        <Square className="h-5 w-5" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="py-3 px-4">Claim ID</th>
-                  <th className="py-3 px-4">Employee</th>
-                  <th className="py-3 px-4">Category Details</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Amount</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                {pendingPayouts.slice(0, 3).map((claim) => (
-                  <tr
-                    key={claim.id}
-                    onClick={() => handleRowClick(claim)}
-                    className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
-                  >
-                    <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => toggleSelectClaim(claim.id)}
-                        className="text-slate-500 hover:text-red-600 animate-fade-in cursor-pointer"
-                      >
-                        {selectedClaims.includes(claim.id) ? (
-                          <CheckSquare className="h-5 w-5 text-red-600" />
-                        ) : (
-                          <Square className="h-5 w-5" />
-                        )}
-                      </button>
-                    </td>
-                    <td className="py-4 px-4 font-semibold text-slate-500 font-mono">{claim.id}</td>
-                    <td className="py-4 px-4">
-                      <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
-                        {claim.employeeName || claim.employee || 'Unknown Employee'}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-left">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                        {claim.category}
-                        {claim.ocrOverallScore !== null && claim.ocrOverallScore !== undefined && (
-                          <span className={`inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded border select-none ${
-                            claim.ocrOverallScore >= 90
-                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                              : claim.ocrOverallScore >= 75
-                                ? 'text-amber-700 bg-amber-50 border-amber-200'
-                                : 'text-rose-700 bg-rose-50 border-rose-200'
-                          }`}>
-                            {claim.ocrOverallScore}% OCR
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{claim.description}</p>
-                    </td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
-                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateTime(claim.submissionDate)}</td>
-                    <td className="py-4 px-4">
-                      <StatusBadge status={claim.status} />
-                    </td>
-                    <td className="py-4 px-4 text-right font-extrabold text-slate-900">
-                      ₹{claim.amount.toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="hover:border-slate-400 hover:bg-slate-50 text-slate-700 flex items-center gap-1"
-                          onClick={() => handleRowClick(claim)}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Review
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+              GL Synchronization
+            </h4>
+            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
+              <li>Use the batch disbursement desk to process multiple approved payouts at once.</li>
+              <li>Successful payouts automatically generate Oracle GL voucher logs in the monitor.</li>
+              <li>Return audited claims to manager/employee with description notes if issues are found.</li>
+            </ul>
           </div>
-        )}
+        </div>
       </Card>
 
       {/* Oracle Integration visual logger */}

@@ -62,8 +62,8 @@ export class FinanceService {
       claim.status = targetStatus;
       claim.financeComments =
         comments ||
-        (action === 'PROCESS_PAYMENT' 
-          ? 'Payment settled.' 
+        (action === 'PROCESS_PAYMENT'
+          ? 'Payment settled.'
           : action === 'RETURN_TO_MANAGER'
             ? 'Claim returned to manager by Finance.'
             : 'Claim rejected by Finance.');
@@ -102,9 +102,10 @@ export class FinanceService {
         action: activityAction,
         claimId,
         amount: updatedClaim.amount,
-        details: action === 'RETURN_TO_MANAGER' 
-          ? `Claim returned to manager by ${financeName}.`
-          : `Claim processed and ${targetStatus.toLowerCase()} by ${financeName}.`,
+        details:
+          action === 'RETURN_TO_MANAGER'
+            ? `Claim returned to manager by ${financeName}.`
+            : `Claim processed and ${targetStatus.toLowerCase()} by ${financeName}.`,
       });
 
       // Role-Based Notifications
@@ -137,7 +138,10 @@ export class FinanceService {
         await Notification.create({
           id: `NOTIF-EMP-${Date.now()}-${claimId}`,
           userId: updatedClaim.employeeId,
-          title: action === 'PROCESS_PAYMENT' ? 'Claim Synced to Oracle ERP' : 'Expense Rejected by Finance',
+          title:
+            action === 'PROCESS_PAYMENT'
+              ? 'Claim Synced to Oracle ERP'
+              : 'Expense Rejected by Finance',
           description:
             action === 'PROCESS_PAYMENT'
               ? `Your claim ${claimId} for ₹${updatedClaim.amount.toLocaleString('en-IN')} has been reimbursed and synced to Oracle ERP. Ref: ${claim.oracleRefId}`

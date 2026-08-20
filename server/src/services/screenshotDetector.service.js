@@ -19,8 +19,8 @@ export class ScreenshotDetectorService {
     if (originalName) {
       const lowerName = originalName.toLowerCase();
       if (
-        lowerName.includes('screenshot') || 
-        lowerName.includes('screen shot') || 
+        lowerName.includes('screenshot') ||
+        lowerName.includes('screen shot') ||
         lowerName.includes('screen-shot')
       ) {
         const heuristicName = 'Filename Pattern Match';
@@ -28,7 +28,7 @@ export class ScreenshotDetectorService {
         return {
           isScreenshot: true,
           heuristic: heuristicName,
-          reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.'
+          reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.',
         };
       }
     }
@@ -38,8 +38,8 @@ export class ScreenshotDetectorService {
       const fileBuffer = await fs.readFile(filePath);
       const bufferString = fileBuffer.toString('binary');
       if (
-        bufferString.includes('Screen Shot') || 
-        bufferString.includes('Screenshot') || 
+        bufferString.includes('Screen Shot') ||
+        bufferString.includes('Screenshot') ||
         bufferString.includes('Apple System Profile')
       ) {
         const heuristicName = 'File Metadata Signature Match';
@@ -47,7 +47,7 @@ export class ScreenshotDetectorService {
         return {
           isScreenshot: true,
           heuristic: heuristicName,
-          reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.'
+          reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.',
         };
       }
     } catch (err) {
@@ -73,7 +73,7 @@ export class ScreenshotDetectorService {
         'chrome',
         'vs code',
         'scan receipt',
-        'employee workspace'
+        'employee workspace',
       ];
 
       for (const keyword of screenshotKeywords) {
@@ -83,25 +83,33 @@ export class ScreenshotDetectorService {
           return {
             isScreenshot: true,
             heuristic: heuristicName,
-            reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.'
+            reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.',
           };
         }
       }
 
       // Check browser URL patterns / localhost addresses
-      const urlRegex = /(http:\/\/localhost|localhost:|chrome:\/\/|chrome-extension:\/\/|file:\/\/\/)/i;
+      const urlRegex =
+        /(http:\/\/localhost|localhost:|chrome:\/\/|chrome-extension:\/\/|file:\/\/\/)/i;
       if (urlRegex.test(text)) {
         const heuristicName = 'Browser URL/Protocol Pattern Match';
         console.log(`[Screenshot Detector] Rejection Heuristic Triggered: ${heuristicName}`);
         return {
           isScreenshot: true,
           heuristic: heuristicName,
-          reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.'
+          reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.',
         };
       }
 
       // Check window borders / scrollbars keywords
-      const borderKeywords = ['scrollbar', 'scroll bar', 'minimise', 'maximise', 'active window', 'window frame'];
+      const borderKeywords = [
+        'scrollbar',
+        'scroll bar',
+        'minimise',
+        'maximise',
+        'active window',
+        'window frame',
+      ];
       for (const keyword of borderKeywords) {
         if (text.includes(keyword)) {
           const heuristicName = `Window Element Match (${keyword})`;
@@ -109,16 +117,15 @@ export class ScreenshotDetectorService {
           return {
             isScreenshot: true,
             heuristic: heuristicName,
-            reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.'
+            reason: 'Please upload the original receipt, invoice, or PDF instead of a screenshot.',
           };
         }
       }
-
     } catch (err) {
       console.error('[Screenshot Detector] OCR pre-check failed:', err);
     }
 
-    console.log(`[Screenshot Detector] File audit complete. Duplicate found: NO`);
+    console.log('[Screenshot Detector] File audit complete. Duplicate found: NO');
     return { isScreenshot: false };
   }
 }
