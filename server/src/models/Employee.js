@@ -8,6 +8,8 @@ const EmployeeSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     department: { type: String, required: true },
     costCenter: { type: String, required: true },
+    passwordHash: { type: String },
+    allowedCategories: [{ type: String }],
   },
   { timestamps: true }
 );

@@ -34,6 +34,32 @@ const ManagerDashboard = () => {
   const claimId = searchParams.get('claimId');
   const { addNotification } = useUI();
 
+  // Search states & handlers
+  const [searchEmployeeId, setSearchEmployeeId] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  const handleSearch = async () => {
+    if (!searchEmployeeId.trim()) return;
+    setSearching(true);
+    try {
+      const res = await api.get(`/manager/search?employeeId=${searchEmployeeId.trim()}`);
+      if (res && res.success && res.data) {
+        setSearchResults(res.data.claims || []);
+      }
+    } catch (err) {
+      console.error('Failed to search employee claims:', err);
+      addNotification('Search Failed', err.message || 'Failed to search employee claims', 'error');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchEmployeeId('');
+    setSearchResults(null);
+  };
+
   // Drawer popup states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeClaimData, setActiveClaimData] = useState(null);
@@ -474,12 +500,30 @@ const ManagerDashboard = () => {
               <span className="font-extrabold text-slate-800">{user?.costCenter || 'CC-ENG-402'}</span>
             </div>
             <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Department</span>
+              <span className="font-extrabold text-slate-800">{user?.department || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
               <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Role</span>
               <span className="font-extrabold text-slate-800">Line Manager (Approver)</span>
             </div>
-            <div className="flex justify-between items-center pb-1">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
               <span className="text-slate-400 font-bold text-xs uppercase tracking-wider">Approval Authority</span>
               <span className="font-extrabold text-slate-800">Standard CFA Limits</span>
+            </div>
+            <div className="pt-2 text-left">
+              <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block mb-1.5">Allowed Expense Categories</span>
+              <div className="flex flex-wrap gap-1.5">
+                {user?.allowedCategories && user.allowedCategories.length > 0 ? (
+                  user.allowedCategories.map((cat) => (
+                    <span key={cat} className="text-[11px] font-bold bg-red-50 text-red-600 px-2.5 py-0.5 rounded border border-red-100">
+                      {cat}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-500 italic">No categories assigned</span>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -553,6 +597,155 @@ const ManagerDashboard = () => {
           )}
         </Card>
       </div>
+
+      {/* Employee Search Card */}
+      <Card title="Employee Claims Search">
+        <div className="space-y-4 text-left">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5" htmlFor="employeeSearchId">
+                Employee OLM ID
+              </label>
+              <input
+                id="employeeSearchId"
+                type="text"
+                placeholder="Enter Employee OLM ID (e.g. emp_123)"
+                value={searchEmployeeId}
+                onChange={(e) => setSearchEmployeeId(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white py-2 px-4 text-sm text-slate-800 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="primary" onClick={handleSearch} loading={searching}>
+                Search Employee
+              </Button>
+              {searchResults !== null && (
+                <Button variant="outline" onClick={handleClearSearch}>
+                  Clear Results
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Search Results Table */}
+          {searchResults !== null && (
+            <div className="mt-6 border-t border-slate-100 pt-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-4">Search Results for Employee: {searchEmployeeId}</h3>
+              {searchResults.length === 0 ? (
+                <div className="py-6 text-center text-slate-500 text-xs">
+                  No claims found for this employee under your allowed categories.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <th className="py-2.5 px-3">Claim ID</th>
+                        <th className="py-2.5 px-3">Title / Category</th>
+                        <th className="py-2.5 px-3">Amount</th>
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                      {searchResults.map((claim) => (
+                        <tr key={claim.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-3 font-mono">{claim.id}</td>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-800">{claim.title}</div>
+                            <span className="text-[10px] text-slate-400">{claim.category}</span>
+                          </td>
+                          <td className="py-3 px-3 font-extrabold text-slate-800">₹{claim.amount.toLocaleString('en-IN')}</td>
+                          <td className="py-3 px-3 font-sans text-slate-500">{formatDateOnly(claim.invoiceDate)}</td>
+                          <td className="py-3 px-3">
+                            <StatusBadge status={claim.status} />
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="py-1 h-auto text-[11px] font-bold hover:bg-slate-50 text-slate-700 border-slate-200"
+                              onClick={() => handleRowClick(claim)}
+                            >
+                              Review
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Recent Claims Section */}
+      <Card title="Recent Claims Queue">
+        {claims.length === 0 ? (
+          <div className="py-8 text-center text-slate-500">
+            <p className="font-semibold">No claims in queue</p>
+            <p className="text-xs text-slate-400 mt-1">There are no claims associated with your allowed categories.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto text-left">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <th className="py-3 px-4">Employee</th>
+                  <th className="py-3 px-4">Claim Details</th>
+                  <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Invoice Date</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                {claims.slice(0, 10).map((claim) => (
+                  <tr
+                    key={claim.id}
+                    onClick={() => handleRowClick(claim)}
+                    className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                  >
+                    <td className="py-4 px-4">
+                      <div className="font-bold text-slate-800 group-hover:text-red-600 transition-colors">
+                        {claim.employeeName || claim.employee}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono font-medium">ID: {claim.id}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="font-bold text-slate-700">{claim.category}</div>
+                      {claim.subcategory && (
+                        <div className="text-[10px] text-slate-400 font-normal font-sans mt-0.5">{claim.subcategory}</div>
+                      )}
+                    </td>
+                    <td className="py-4 px-4 font-extrabold text-slate-800">
+                      ₹{claim.amount.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-4 px-4 text-slate-500 font-sans">{formatDateOnly(claim.invoiceDate)}</td>
+                    <td className="py-4 px-4">
+                      <StatusBadge status={claim.status} />
+                    </td>
+                    <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="hover:border-slate-300 hover:bg-slate-50 text-slate-700 flex items-center gap-1 font-bold"
+                        onClick={() => handleRowClick(claim)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Review
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       {/* How to Approve a Claim Card (Instructions) */}
       <Card title="How to Approve a Claim">

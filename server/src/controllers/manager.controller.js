@@ -1,5 +1,5 @@
 import { managerService } from '../services/manager.service.js';
-import { sendSuccess } from '../utils/response.util.js';
+import { sendSuccess, sendError } from '../utils/response.util.js';
 
 export class ManagerController {
   /**
@@ -41,6 +41,26 @@ export class ManagerController {
         `[Trace Log - Controller] POST /api/v1/manager/review/${req.params.id} error:`,
         error
       );
+      next(error);
+    }
+  }
+
+  /**
+   * Search claims filed by a specific employee (matching manager allowed categories)
+   */
+  async searchEmployeeClaims(req, res, next) {
+    try {
+      const { employeeId } = req.query;
+      console.log(
+        `[Trace Log - Controller] GET /api/v1/manager/search for manager ${req.user.id}, searching employee ${employeeId}`
+      );
+      if (!employeeId) {
+        return sendError(res, 'Employee ID is required', {}, 400);
+      }
+      const claims = await managerService.searchEmployeeClaims(req.user.id, employeeId);
+      return sendSuccess(res, 'Employee claims retrieved successfully', { claims });
+    } catch (error) {
+      console.error('[Trace Log - Controller] GET /api/v1/manager/search error:', error);
       next(error);
     }
   }

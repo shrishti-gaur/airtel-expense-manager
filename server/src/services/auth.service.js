@@ -1,4 +1,5 @@
 import { Employee } from '../models/Employee.js';
+import { verifyPassword } from '../utils/hash.util.js';
 
 /**
  * Auth Service Database Implementation
@@ -7,12 +8,26 @@ export class AuthService {
   /**
    * Verify credentials and generate session tokens from MongoDB database
    */
-  async authenticateUser(email, _password) {
+  async authenticateUser(email, password) {
     console.log(`[Auth Service] Authenticating user from DB: ${email}`);
 
-    const employee = await Employee.findOne({ email: email.toLowerCase().trim() });
+    const identifier = email.toLowerCase().trim();
+    const employee = await Employee.findOne({
+      $or: [
+        { email: identifier },
+        { employeeId: identifier },
+        { employeeId: identifier.toUpperCase() }
+      ]
+    });
+
     if (!employee) {
-      throw new Error(`Corporate account not registered for email: ${email}`);
+      throw new Error(`Corporate account not registered for: ${email}`);
+    }
+
+    if (employee.passwordHash) {
+      if (!password || !verifyPassword(password, employee.passwordHash)) {
+        throw new Error('Invalid authentication credentials');
+      }
     }
 
     // Generate backward-compatible token with employee ID
@@ -27,6 +42,7 @@ export class AuthService {
         email: employee.email,
         department: employee.department,
         costCenter: employee.costCenter,
+        allowedCategories: employee.allowedCategories || [],
       },
     };
   }
@@ -56,12 +72,13 @@ export class AuthService {
             name: employee.name,
             department: employee.department,
             costCenter: employee.costCenter,
+            allowedCategories: employee.allowedCategories || [],
           };
         }
       }
     }
 
-    return { id: 'user_gen', role: 'Employee', name: 'General User' };
+    return { id: 'user_gen', role: 'Employee', name: 'General User', allowedCategories: [] };
   }
 }
 

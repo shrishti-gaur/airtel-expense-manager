@@ -3,9 +3,9 @@ import { validateRequest } from '../middleware/validator.middleware.js';
 
 export const loginValidator = [
   body('email')
-    .isEmail()
-    .withMessage('A valid corporate email address is required')
-    .normalizeEmail(),
+    .trim()
+    .notEmpty()
+    .withMessage('Corporate email or OLM ID is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
   validateRequest,
 ];

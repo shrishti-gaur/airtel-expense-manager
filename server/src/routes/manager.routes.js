@@ -10,6 +10,7 @@ router.use(requireAuth);
 router.use(requireRole('Manager'));
 
 router.get('/pending', managerController.getPendingClaims);
+router.get('/search', managerController.searchEmployeeClaims);
 router.post('/review/:id', reviewClaimValidator, managerController.reviewClaim);
 
 export default router;

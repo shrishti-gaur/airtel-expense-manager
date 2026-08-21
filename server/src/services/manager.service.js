@@ -12,13 +12,14 @@ export class ManagerService {
 
     // Find the manager's profile
     const manager = await Employee.findOne({ employeeId: managerId });
-
-    const query = {};
-
-    // Restrict manager to Engineering and Sales department claims (matching mock data filters)
-    if (manager) {
-      query.department = { $in: ['Engineering', 'Sales'] };
+    if (!manager) {
+      return [];
     }
+
+    // Dynamic category-based filtering
+    const query = {
+      category: { $in: manager.allowedCategories || [] }
+    };
 
     console.log('[Trace Log - Service] Querying pending claims from MongoDB with query:', query);
     const results = await ExpenseClaim.find(query).sort({ createdAt: -1 });
@@ -37,6 +38,12 @@ export class ManagerService {
     const claim = await ExpenseClaim.findOne({ id: claimId });
     if (!claim) {
       throw new Error(`Expense claim with ID ${claimId} not found`);
+    }
+
+    // SECURITY CHECK: Validate manager permissions on the specific claim's category
+    const manager = await Employee.findOne({ employeeId: managerId });
+    if (!manager || !manager.allowedCategories.includes(claim.category)) {
+      throw new Error('Access denied. Manager does not have permission to review claims under this category.');
     }
 
     // Manager can approve (status -> Approved) or return (status -> Returned)
@@ -104,6 +111,26 @@ export class ManagerService {
     }
 
     return updatedClaim;
+  }
+
+  /**
+   * Search claims filed by a specific employee restricted to the manager's allowed categories
+   */
+  async searchEmployeeClaims(managerId, employeeId) {
+    console.log(`[Manager Service] Searching employee ${employeeId} claims for manager: ${managerId}`);
+
+    const manager = await Employee.findOne({ employeeId: managerId });
+    if (!manager) {
+      throw new Error('Manager profile not found');
+    }
+
+    const query = {
+      employeeId: { $regex: new RegExp(`^${employeeId.trim()}$`, 'i') },
+      category: { $in: manager.allowedCategories || [] }
+    };
+
+    console.log('[Trace Log - Service] Searching employee claims with query:', query);
+    return await ExpenseClaim.find(query).sort({ createdAt: -1 });
   }
 }
 
