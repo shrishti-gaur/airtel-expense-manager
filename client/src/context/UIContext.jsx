@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from './AuthContext';
+import { setExpenseCategories } from '../constants/expenseCategories';
 
 const UIContext = createContext(null);
 
@@ -10,6 +11,7 @@ export const UIProvider = ({ children }) => {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [expenseCategories, setCategoriesState] = useState([]);
 
   // Play double chime notification sound using browser Web Audio API
   const playNotificationSound = useCallback(() => {
@@ -74,6 +76,31 @@ export const UIProvider = ({ children }) => {
       })
       .catch((err) => {
         console.error('Failed to load notifications from database:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  // Load expense categories on login / startup
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setCategoriesState([]);
+      return;
+    }
+    
+    api.get('/expense/categories')
+      .then((response) => {
+        if (active && response && response.success && response.data) {
+          const cats = response.data.categories || [];
+          setExpenseCategories(cats);
+          setCategoriesState(cats);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load categories from database:', err);
       });
 
     return () => {
@@ -198,7 +225,8 @@ export const UIProvider = ({ children }) => {
         markAsRead,
         clearNotification,
         clearAllNotifications,
-        unreadCount
+        unreadCount,
+        expenseCategories
       }}
     >
       {children}

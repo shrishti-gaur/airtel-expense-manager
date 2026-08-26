@@ -15,12 +15,19 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
  * ReceiptSection component handling uploads, previews, and zoom states
  */
 const ReceiptSection = ({
+  receipts = [],
+  activeReceiptIndex = 0,
+  onSelectReceipt,
+  onAddReceipt,
+  onRemoveReceipt,
+  isEditable,
+  
+  // Legacy / Single-receipt props
   receiptUrl,
   fileName = '',
   fileType = '',
   fileSize = null,
   uploadDate = null,
-  isEditable,
   onFileChange,
 }) => {
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -37,8 +44,26 @@ const ReceiptSection = ({
   const [pendingFile, setPendingFile] = useState(null);
   const [pendingDiagnostics, setPendingDiagnostics] = useState(null);
   const [pendingDataUrl, setPendingDataUrl] = useState(null);
+  const [pendingIsReplace, setPendingIsReplace] = useState(false);
 
-  const processSelectedFile = async (file) => {
+  // Map to unified receipts list
+  const effectiveReceipts = receipts && receipts.length > 0 ? receipts : (receiptUrl ? [{
+    receiptUrl,
+    fileName,
+    fileType,
+    fileSize,
+    uploadDate,
+    amount: 0
+  }] : []);
+
+  const activeReceipt = effectiveReceipts[activeReceiptIndex] || null;
+  const currentUrl = activeReceipt ? activeReceipt.receiptUrl : null;
+  const currentName = activeReceipt ? activeReceipt.fileName : '';
+  const currentType = activeReceipt ? activeReceipt.fileType : '';
+  const currentSize = activeReceipt ? activeReceipt.fileSize : null;
+  const currentDate = activeReceipt ? activeReceipt.uploadDate : null;
+
+  const processSelectedFile = async (file, isReplace = false) => {
     if (file && file.type && file.type.startsWith('image/')) {
       const runChecks = (width, height, getImgData) => {
         try {
@@ -51,6 +76,7 @@ const ReceiptSection = ({
           
           if (hasWarnings) {
             setPendingFile(file);
+            setPendingIsReplace(isReplace);
             setPendingDiagnostics({
               blur: blurInfo,
               dark: darkInfo,
@@ -61,11 +87,11 @@ const ReceiptSection = ({
             setPendingDataUrl(URL.createObjectURL(file));
             setIsQualityAlertOpen(true);
           } else {
-            triggerFileChange(file);
+            triggerFileChange(file, isReplace);
           }
         } catch (err) {
           console.warn("Diagnostics error, uploading directly:", err);
-          triggerFileChange(file);
+          triggerFileChange(file, isReplace);
         }
       };
 
@@ -128,15 +154,27 @@ const ReceiptSection = ({
       };
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
-        triggerFileChange(file);
+        triggerFileChange(file, isReplace);
       };
     } else if (file) {
-      triggerFileChange(file);
+      triggerFileChange(file, isReplace);
     }
   };
 
-  const triggerFileChange = (file) => {
-    if (onFileChange) {
+  const triggerFileChange = (file, isReplace = false) => {
+    if (isReplace && onFileChange) {
+      onFileChange({
+        target: {
+          files: [file]
+        }
+      });
+    } else if (onAddReceipt) {
+      onAddReceipt({
+        target: {
+          files: [file]
+        }
+      });
+    } else if (onFileChange) {
       onFileChange({
         target: {
           files: [file]
@@ -147,10 +185,11 @@ const ReceiptSection = ({
 
   const handleConfirmQualityAlert = () => {
     if (pendingFile) {
-      triggerFileChange(pendingFile);
+      triggerFileChange(pendingFile, pendingIsReplace);
     }
     setIsQualityAlertOpen(false);
     setPendingFile(null);
+    setPendingIsReplace(false);
     setPendingDiagnostics(null);
     setPendingDataUrl(null);
   };
@@ -158,6 +197,7 @@ const ReceiptSection = ({
   const handleCloseQualityAlert = () => {
     setIsQualityAlertOpen(false);
     setPendingFile(null);
+    setPendingIsReplace(false);
     setPendingDiagnostics(null);
     setPendingDataUrl(null);
   };
@@ -170,14 +210,27 @@ const ReceiptSection = ({
 
   const handleUploadChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      processSelectedFile(e.target.files[0]);
+      processSelectedFile(e.target.files[0], false);
+    }
+  };
+
+  const handleReplaceChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      processSelectedFile(e.target.files[0], true);
     }
   };
 
   const handleCameraCapture = (e) => {
     if (e.target.files && e.target.files[0]) {
       const sanitized = sanitizeCapturedFile(e.target.files[0]);
-      processSelectedFile(sanitized);
+      processSelectedFile(sanitized, false);
+    }
+  };
+
+  const handleCameraReplace = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const sanitized = sanitizeCapturedFile(e.target.files[0]);
+      processSelectedFile(sanitized, true);
     }
   };
 
@@ -190,32 +243,32 @@ const ReceiptSection = ({
   const [docxLoading, setDocxLoading] = useState(false);
   const [docxError, setDocxError] = useState(null);
 
-  const isPdf = !receiptUrl ? false : (
-    (fileType && fileType.includes('pdf')) || 
-    /\.pdf$/i.test(fileName) || 
-    /\.pdf(\?.*)?$/i.test(receiptUrl)
+  const isPdf = !currentUrl ? false : (
+    (currentType && currentType.includes('pdf')) || 
+    /\.pdf$/i.test(currentName) || 
+    /\.pdf(\?.*)?$/i.test(currentUrl)
   );
 
-  const isDocx = !receiptUrl ? false : (
-    (fileType && (fileType.includes('word') || fileType.includes('officedocument'))) || 
-    /\.(docx|doc)$/i.test(fileName) || 
-    /\.(docx|doc)(\?.*)?$/i.test(receiptUrl)
+  const isDocx = !currentUrl ? false : (
+    (currentType && (currentType.includes('word') || currentType.includes('officedocument'))) || 
+    /\.(docx|doc)$/i.test(currentName) || 
+    /\.(docx|doc)(\?.*)?$/i.test(currentUrl)
   );
 
   // Detect file type
-  const isImage = !receiptUrl ? false : (
-    (fileType && fileType.includes('image')) || 
-    receiptUrl.startsWith('data:image') ||
-    /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileName) ||
-    /\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i.test(receiptUrl) ||
-    (!fileType && !isPdf && !isDocx)
+  const isImage = !currentUrl ? false : (
+    (currentType && currentType.includes('image')) || 
+    currentUrl.startsWith('data:image') ||
+    /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(currentName) ||
+    /\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i.test(currentUrl) ||
+    (!currentType && !isPdf && !isDocx)
   );
 
   // Diagnostic Traces
   console.log('[ReceiptSection] Trace details:');
-  console.log(' - receiptUrl:', receiptUrl);
-  console.log(' - fileName:', fileName);
-  console.log(' - fileType:', fileType);
+  console.log(' - currentUrl:', currentUrl);
+  console.log(' - currentName:', currentName);
+  console.log(' - currentType:', currentType);
   console.log(' - isPdf evaluation:', isPdf);
   console.log(' - isDocx evaluation:', isDocx);
   console.log(' - isImage evaluation:', isImage);
@@ -224,7 +277,7 @@ const ReceiptSection = ({
   useEffect(() => {
     setNumPages(null);
     setPageNumber(1);
-  }, [receiptUrl]);
+  }, [currentUrl]);
 
   const handleZoomIn = (e) => {
     e.stopPropagation();
@@ -251,11 +304,11 @@ const ReceiptSection = ({
   useEffect(() => {
     let active = true;
 
-    if (isDocx && receiptUrl && docxRef.current) {
+    if (isDocx && currentUrl && docxRef.current) {
       setDocxLoading(true);
       setDocxError(null);
       
-      fetch(receiptUrl)
+      fetch(currentUrl)
         .then((res) => {
           if (!res.ok) throw new Error('Failed to fetch DOCX source');
           return res.arrayBuffer();
@@ -292,7 +345,7 @@ const ReceiptSection = ({
         docxRef.current.innerHTML = '';
       }
     };
-  }, [receiptUrl, isDocx]);
+  }, [currentUrl, isDocx]);
 
   // Format file size metrics
   const formatBytes = (bytes) => {
@@ -325,8 +378,8 @@ const ReceiptSection = ({
       
       {/* Dynamic persistent preview controls header */}
       <div className="mb-4 flex items-center justify-between font-sans flex-wrap gap-2 border-b border-slate-800 pb-3">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Receipt Document</span>
-        {receiptUrl && (isImage || isPdf) && (
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Receipt Documents</span>
+        {currentUrl && (isImage || isPdf) && (
           <div className="flex items-center gap-2 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 shadow-sm shrink-0">
             <button
               type="button"
@@ -356,8 +409,8 @@ const ReceiptSection = ({
               Reset
             </button>
             <a
-              href={receiptUrl}
-              download={fileName || 'receipt_file'}
+              href={currentUrl}
+              download={currentName || 'receipt_file'}
               className="p-1 text-slate-400 hover:text-white transition-colors border-l border-slate-700 pl-2 cursor-pointer flex items-center gap-1"
               title="Download Original Document"
               target="_blank"
@@ -370,16 +423,99 @@ const ReceiptSection = ({
         )}
       </div>
 
+      {/* Receipts Thumbnails Scrollbar */}
+      {effectiveReceipts.length > 0 && (
+        <div className="mb-4 w-full">
+          <div className="flex gap-3 overflow-x-auto pb-2.5 pt-0.5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-slate-950/40 scroll-smooth">
+            {effectiveReceipts.map((receipt, idx) => {
+              const isActive = idx === activeReceiptIndex;
+              const isImg = !receipt.receiptUrl ? false : (
+                (receipt.fileType && receipt.fileType.includes('image')) || 
+                receipt.receiptUrl.startsWith('data:image') ||
+                /\.(jpeg|jpg|gif|png|webp|svg)/i.test(receipt.fileName)
+              );
+              
+              return (
+                <div
+                  key={idx}
+                  onClick={() => onSelectReceipt && onSelectReceipt(idx)}
+                  className={`relative flex flex-col shrink-0 w-28 rounded-xl border p-2 cursor-pointer transition-all ${
+                    isActive
+                      ? 'bg-slate-800 border-red-500 shadow-md scale-95'
+                      : 'bg-slate-950/50 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
+                  }`}
+                >
+                  {/* Thumbnail / Icon */}
+                  <div className="w-full h-16 rounded bg-slate-950 overflow-hidden flex items-center justify-center relative mb-1.5 border border-slate-900">
+                    {isImg ? (
+                      <img src={receipt.receiptUrl} alt={receipt.fileName} className="w-full h-full object-cover" />
+                    ) : (
+                      <FileText className="h-6 w-6 text-slate-500" />
+                    )}
+                    
+                    {/* OCR Status Badge */}
+                    <div className="absolute top-1 right-1">
+                      {receipt.amount > 0 ? (
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-slate-900 block" title="OCR Success" />
+                      ) : (
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-slate-900 block" title="OCR Warning/No amount" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Title / Amount */}
+                  <div className="text-[10px] text-left truncate font-sans font-bold text-slate-300 mb-0.5 leading-tight">
+                    {receipt.fileName || `Receipt ${idx + 1}`}
+                  </div>
+                  <div className="text-[10px] text-left font-extrabold text-white">
+                    ₹{Number(receipt.amount || 0).toLocaleString('en-IN')}
+                  </div>
+
+                  {/* Delete Button */}
+                  {isEditable && onRemoveReceipt && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveReceipt(idx);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 rounded-full bg-red-600 hover:bg-red-700 p-0.5 text-white shadow-md transition-colors cursor-pointer border border-slate-900"
+                      title="Remove Receipt"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Sleek "+ Add Another Receipt" option card */}
+            {isEditable && onAddReceipt && (
+              <label className="flex flex-col items-center justify-center shrink-0 w-28 h-[106px] rounded-xl border border-dashed border-slate-700 hover:border-slate-500 hover:bg-slate-900/40 cursor-pointer transition-all p-2 select-none">
+                <Upload className="h-5 w-5 text-slate-400 mb-1" />
+                <span className="text-[10px] font-bold text-slate-400 tracking-tight text-center leading-snug">Add Receipt</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf,.docx,.doc"
+                  className="hidden"
+                  onChange={handleUploadChange}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main preview container block */}
       <div className="flex h-[250px] md:h-auto md:flex-1 items-center justify-center rounded-xl bg-slate-950/50 border border-slate-800/80 overflow-auto relative group min-h-[220px] md:min-h-[350px]">
-        {receiptUrl ? (
+        {currentUrl ? (
           <div className="h-full w-full flex flex-col items-center justify-center p-4 overflow-auto">
             
             {/* IMAGE PREVIEW MODE */}
             {isImage && (
               <div className="relative h-full w-full flex items-center justify-center overflow-auto p-4">
                 <img
-                  src={receiptUrl}
+                  src={currentUrl}
                   alt="Receipt Invoice"
                   className="rounded transition-all duration-200 cursor-zoom-in animate-in fade-in zoom-in-95"
                   style={{
@@ -398,7 +534,7 @@ const ReceiptSection = ({
             {isPdf && (
               <div className="h-full w-full overflow-auto flex flex-col items-center justify-start py-2">
                 <Document
-                  file={receiptUrl}
+                  file={currentUrl}
                   onLoadSuccess={onDocumentLoadSuccess}
                   onLoadError={onDocumentLoadError}
                   loading={
@@ -489,13 +625,13 @@ const ReceiptSection = ({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white leading-snug truncate max-w-[200px] font-sans">
-                    {fileName || 'receipt_file'}
+                    {currentName || 'receipt_file'}
                   </h4>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Attachment File</p>
                 </div>
                 <a
-                  href={receiptUrl}
-                  download={fileName || 'receipt_attachment'}
+                  href={currentUrl}
+                  download={currentName || 'receipt_attachment'}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-xs font-semibold text-white transition-colors"
                 >
                   Download File
@@ -514,7 +650,7 @@ const ReceiptSection = ({
       </div>
 
       {/* Metadata info cards panel at bottom */}
-      {receiptUrl && (
+      {currentUrl && (
         <div className="mt-3 md:mt-4 border-t border-slate-800 pt-3 md:pt-4 text-left font-sans text-xs space-y-1.5 md:space-y-2 bg-slate-950/20 p-2.5 md:p-3 rounded-lg border border-slate-800/60 shrink-0">
           <div className="flex justify-between items-center text-slate-400 select-none">
             <span className="font-semibold text-slate-500 uppercase tracking-wide text-[10px]">File Metadata</span>
@@ -525,19 +661,19 @@ const ReceiptSection = ({
           <div className="grid grid-cols-2 gap-x-3 md:gap-x-4 gap-y-2 md:gap-y-2.5 text-slate-300">
             <div className="truncate">
               <span className="block text-[10px] text-slate-500 font-semibold select-none">File Name</span>
-              <span className="font-medium truncate block font-sans" title={fileName}>{fileName || 'receipt_document'}</span>
+              <span className="font-medium truncate block font-sans" title={currentName}>{currentName || 'receipt_document'}</span>
             </div>
             <div>
               <span className="block text-[10px] text-slate-500 font-semibold select-none">File Size</span>
-              <span className="font-medium font-sans">{formatBytes(fileSize)}</span>
+              <span className="font-medium font-sans">{formatBytes(currentSize)}</span>
             </div>
             <div className="truncate">
               <span className="block text-[10px] text-slate-500 font-semibold select-none">MIME Content Type</span>
-              <span className="font-medium truncate block font-sans" title={fileType}>{fileType || 'N/A'}</span>
+              <span className="font-medium truncate block font-sans" title={currentType}>{currentType || 'N/A'}</span>
             </div>
             <div>
               <span className="block text-[10px] text-slate-500 font-semibold select-none">Upload Date</span>
-              <span className="font-medium font-sans">{formatDate(uploadDate)}</span>
+              <span className="font-medium font-sans">{formatDate(currentDate)}</span>
             </div>
           </div>
         </div>
@@ -548,12 +684,12 @@ const ReceiptSection = ({
         <div className="mt-4 border-t border-slate-800 pt-3 flex flex-col sm:flex-row gap-3">
           <label className="flex-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-950/30 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-950/50 hover:text-white transition-all select-none">
             <Upload className="h-4 w-4" />
-            {receiptUrl ? 'Replace Document' : 'Upload Receipt'}
+            {currentUrl ? 'Replace Document' : 'Upload Receipt'}
             <input
               type="file"
               accept="image/*,application/pdf,.docx,.doc"
               className="hidden"
-              onChange={handleUploadChange}
+              onChange={handleReplaceChange}
             />
           </label>
           {isMobile && (
@@ -573,14 +709,14 @@ const ReceiptSection = ({
               accept="image/*"
               capture="environment"
               className="hidden"
-              onChange={handleCameraCapture}
+              onChange={handleCameraReplace}
             />
           )}
         </div>
       )}
 
       {/* Fullscreen modal zoom for images */}
-      {zoomOpen && receiptUrl && isImage && (
+      {zoomOpen && currentUrl && isImage && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/95 p-4 animate-fade-in"
           onClick={() => setZoomOpen(false)}
@@ -593,7 +729,7 @@ const ReceiptSection = ({
             <X className="h-6 w-6" />
           </button>
           <img
-            src={receiptUrl}
+            src={currentUrl}
             alt="Receipt Zoomed"
             className="max-h-full max-w-full object-contain rounded shadow-2xl"
             onClick={(e) => e.stopPropagation()}

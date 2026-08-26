@@ -50,6 +50,7 @@ const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const claimId = searchParams.get('claimId');
+  const userClicked = useRef(false);
   const { runWithLoading, addNotification } = useUI();
 
   // Drawer popup states
@@ -246,12 +247,20 @@ const EmployeeDashboard = () => {
 
   // Listen to path changes and search parameters to open/close drawer
   useEffect(() => {
-    if (claimId) {
-      const claim = claims.find((c) => c.id === claimId);
-      if (claim) {
-        setActiveClaimData(claim);
-        setFormMode(claim.status);
-        setIsFormOpen(true);
+    const hasValidClaimId = claimId && claimId !== 'undefined' && claimId !== 'null';
+
+    if (hasValidClaimId) {
+      if (userClicked.current) {
+        const claim = claims.find((c) => c.id === claimId);
+        if (claim) {
+          setActiveClaimData(claim);
+          setFormMode(claim.status);
+          setIsFormOpen(true);
+        }
+      } else {
+        // Clear stale query params if not triggered by an explicit user click
+        searchParams.delete('claimId');
+        setSearchParams(searchParams);
       }
     } else if (location.pathname === '/employee/submit') {
       if (!isFormOpen) {
@@ -280,10 +289,12 @@ const EmployeeDashboard = () => {
   const metrics = getMetrics();
 
   const handleRowClick = (claim) => {
+    userClicked.current = true;
     setSearchParams({ claimId: claim.id });
   };
 
   const handleFormClose = () => {
+    userClicked.current = false;
     setIsFormOpen(false);
     setActiveClaimData(null);
     if (claimId) {

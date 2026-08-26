@@ -12,6 +12,26 @@ const OcrConfidenceSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ReceiptSchema = new mongoose.Schema(
+  {
+    receiptUrl: { type: String, required: true },
+    fileName: { type: String },
+    fileType: { type: String },
+    fileSize: { type: Number },
+    amount: { type: Number, required: true },
+    tax: { type: Number },
+    merchant: { type: String },
+    invoiceNumber: { type: String },
+    invoiceDate: { type: Date },
+    ocrOverallScore: { type: Number },
+    ocrTimestamp: { type: Date },
+    ocrConfidence: { type: OcrConfidenceSchema },
+    receiptHash: { type: String },
+    invoiceFingerprint: { type: String },
+  },
+  { _id: true }
+);
+
 const ExpenseClaimSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true }, // Custom readable ID like EXP-timestamp or EXP-seq
@@ -54,6 +74,7 @@ const ExpenseClaimSchema = new mongoose.Schema(
     ocrOverallScore: { type: Number },
     ocrTimestamp: { type: Date },
     ocrConfidence: { type: OcrConfidenceSchema },
+    receipts: [ReceiptSchema],
     employeeNotes: { type: String },
     managerComments: { type: String },
     financeComments: { type: String },

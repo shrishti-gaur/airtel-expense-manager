@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
 import { useAuth } from '../../context/AuthContext';
@@ -33,6 +33,7 @@ const FinanceDashboard = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const claimId = searchParams.get('claimId');
+  const userClicked = useRef(false);
   const { runWithLoading, addNotification } = useUI();
 
   // Drawer popup states
@@ -75,12 +76,20 @@ const FinanceDashboard = () => {
 
   // Listen to path changes and search parameters to open/close drawer
   useEffect(() => {
-    if (claimId) {
-      const claim = claims.find((c) => c.id === claimId);
-      if (claim) {
-        setActiveClaimData(claim);
-        setFormMode(claim.status);
-        setIsFormOpen(true);
+    const hasValidClaimId = claimId && claimId !== 'undefined' && claimId !== 'null';
+
+    if (hasValidClaimId) {
+      if (userClicked.current) {
+        const claim = claims.find((c) => c.id === claimId);
+        if (claim) {
+          setActiveClaimData(claim);
+          setFormMode(claim.status);
+          setIsFormOpen(true);
+        }
+      } else {
+        // Clear stale query params if not triggered by an explicit user click
+        searchParams.delete('claimId');
+        setSearchParams(searchParams);
       }
     } else {
       setIsFormOpen(false);
@@ -267,6 +276,7 @@ const FinanceDashboard = () => {
   };
 
   const handleRowClick = (claim) => {
+    userClicked.current = true;
     setSearchParams({ claimId: claim.id });
   };
 
@@ -384,7 +394,10 @@ const FinanceDashboard = () => {
         {/* Drawer popup */}
         <ExpenseForm
           isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            userClicked.current = false;
+            setIsFormOpen(false);
+          }}
           mode={formMode}
           data={activeClaimData}
           onAction={executePayoutAction}
@@ -701,6 +714,7 @@ const FinanceDashboard = () => {
       <ExpenseForm
         isOpen={isFormOpen}
         onClose={() => {
+          userClicked.current = false;
           if (claimId) {
             searchParams.delete('claimId');
             setSearchParams(searchParams);

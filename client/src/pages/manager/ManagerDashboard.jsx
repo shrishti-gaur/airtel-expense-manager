@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +32,7 @@ const ManagerDashboard = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const claimId = searchParams.get('claimId');
+  const userClicked = useRef(false);
   const { addNotification } = useUI();
 
   // Search states & handlers
@@ -100,18 +101,48 @@ const ManagerDashboard = () => {
 
   // Listen to path changes and search parameters to open/close drawer
   useEffect(() => {
-    if (claimId) {
-      const claim = claims.find((c) => c.id === claimId);
-      if (claim) {
-        setActiveClaimData(claim);
-        setFormMode(claim.status);
-        setIsFormOpen(true);
+    const fetchActiveClaim = async () => {
+      const hasValidClaimId = claimId && claimId !== 'undefined' && claimId !== 'null';
+
+      if (hasValidClaimId) {
+        if (userClicked.current) {
+          try {
+            const res = await api.get(`/expense/${claimId}`);
+            if (res && res.success && res.data) {
+              setActiveClaimData(res.data);
+              setFormMode(res.data.status);
+              setIsFormOpen(true);
+            } else {
+              // Fallback: search lists
+              const claim = claims.find((c) => c.id === claimId) || (searchResults || []).find((c) => c.id === claimId);
+              if (claim) {
+                setActiveClaimData(claim);
+                setFormMode(claim.status);
+                setIsFormOpen(true);
+              }
+            }
+          } catch (err) {
+            console.error('[Manager Dashboard] Failed to load claim details dynamically:', err);
+            // Fallback: search lists
+            const claim = claims.find((c) => c.id === claimId) || (searchResults || []).find((c) => c.id === claimId);
+            if (claim) {
+              setActiveClaimData(claim);
+              setFormMode(claim.status);
+              setIsFormOpen(true);
+            }
+          }
+        } else {
+          // Clear stale query params if not triggered by an explicit user click
+          searchParams.delete('claimId');
+          setSearchParams(searchParams);
+        }
+      } else {
+        setIsFormOpen(false);
+        setActiveClaimData(null);
       }
-    } else {
-      setIsFormOpen(false);
-      setActiveClaimData(null);
-    }
-  }, [claimId, claims, location.pathname]);
+    };
+    fetchActiveClaim();
+  }, [claimId, claims, searchResults, location.pathname]);
 
   useEffect(() => {
     const fetchClaims = async () => {
@@ -190,6 +221,11 @@ const ManagerDashboard = () => {
       if (res && res.success && res.data) {
         setClaims(res.data.claims || []);
       }
+
+      // Also refresh employee search results if search is active
+      if (searchEmployeeId.trim() && searchResults !== null) {
+        handleSearch();
+      }
     } catch (err) {
       console.error('[Manager Review] Action failed:', err);
       addNotification('Review Failed', err.message || 'Failed to submit review', 'error');
@@ -200,6 +236,7 @@ const ManagerDashboard = () => {
   };
 
   const handleRowClick = (claim) => {
+    userClicked.current = true;
     setSearchParams({ claimId: claim.id });
   };
 
@@ -318,7 +355,15 @@ const ManagerDashboard = () => {
         {/* Drawer popup */}
         <ExpenseForm
           isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            userClicked.current = false;
+            if (claimId) {
+              searchParams.delete('claimId');
+              setSearchParams(searchParams);
+            } else {
+              setIsFormOpen(false);
+            }
+          }}
           mode={formMode}
           data={activeClaimData}
           onAction={handleAction}
@@ -794,6 +839,7 @@ const ManagerDashboard = () => {
       <ExpenseForm
         isOpen={isFormOpen}
         onClose={() => {
+          userClicked.current = false;
           if (claimId) {
             searchParams.delete('claimId');
             setSearchParams(searchParams);

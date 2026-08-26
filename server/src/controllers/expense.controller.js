@@ -1,5 +1,6 @@
 import { expenseService } from '../services/expense.service.js';
-import { sendSuccess } from '../utils/response.util.js';
+import { sendSuccess, sendError } from '../utils/response.util.js';
+import { ExpenseCategory } from '../models/ExpenseCategory.js';
 
 export class ExpenseController {
   /**
@@ -48,6 +49,18 @@ export class ExpenseController {
         `[Trace Log - Controller] GET /api/v1/expense/${req.params.id} for user ${req.user.id}`
       );
       const claim = await expenseService.getClaimById(req.params.id);
+
+      // Enforce category/owner authorization checks
+      if (req.user.role === 'Employee' && claim.employeeId !== req.user.id) {
+        return sendError(res, 'Access denied. You do not have permission to view this claim.', { code: 'FORBIDDEN' }, 403);
+      }
+      if (req.user.role === 'Manager') {
+        const categories = req.user.allowedCategories || [];
+        if (!categories.includes(claim.category)) {
+          return sendError(res, 'Access denied. Manager does not have permission to view claims under this category.', { code: 'FORBIDDEN' }, 403);
+        }
+      }
+
       console.log(`[Trace Log - Controller] GET /api/v1/expense/${req.params.id} success.`);
       return sendSuccess(res, 'Claim details retrieved successfully', claim);
     } catch (error) {
@@ -70,6 +83,21 @@ export class ExpenseController {
       return sendSuccess(res, 'Claim updated successfully', claim);
     } catch (error) {
       console.error(`[Trace Log - Controller] PUT /api/v1/expense/${req.params.id} error:`, error);
+      next(error);
+    }
+  }
+
+  /**
+   * Fetch all expense categories from MongoDB
+   */
+  async getCategories(req, res, next) {
+    try {
+      console.log(`[Trace Log - Controller] GET /api/v1/expense/categories for user ${req.user.id}`);
+      const categories = await ExpenseCategory.find().sort({ group: 1, label: 1 });
+      console.log(`[Trace Log - Controller] GET /api/v1/expense/categories success. Found ${categories.length} categories.`);
+      return sendSuccess(res, 'Expense categories retrieved successfully', { categories });
+    } catch (error) {
+      console.error('[Trace Log - Controller] GET /api/v1/expense/categories error:', error);
       next(error);
     }
   }

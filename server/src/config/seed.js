@@ -1,6 +1,7 @@
 import { Employee } from '../models/Employee.js';
 import { ExpenseClaim } from '../models/ExpenseClaim.js';
 import { Notification } from '../models/Notification.js';
+import { ExpenseCategory } from '../models/ExpenseCategory.js';
 import { hashPassword } from '../utils/hash.util.js';
 
 export const seedDB = async () => {
@@ -56,7 +57,12 @@ export const seedDB = async () => {
         department: 'Travel',
         costCenter: 'CC-TRV-301',
         passwordHash: hashPassword('password123'),
-        allowedCategories: ['Conveyance', 'International Tour Expense', 'Relocation Expenses', 'Tour Bill'],
+        allowedCategories: [
+          'Conveyance',
+          'International Tour Expense',
+          'Relocation Expenses',
+          'Tour Bill'
+        ],
       },
       {
         employeeId: 'HR001',
@@ -66,7 +72,10 @@ export const seedDB = async () => {
         department: 'HR',
         costCenter: 'CC-HR-501',
         passwordHash: hashPassword('password123'),
-        allowedCategories: ['HR-related Expenses', 'Imprest Reimbursement'],
+        allowedCategories: [
+          'HR-related Expenses',
+          'Imprest Reimbursement'
+        ],
       },
       {
         employeeId: 'SALES001',
@@ -76,7 +85,10 @@ export const seedDB = async () => {
         department: 'Sales',
         costCenter: 'CC-SLS-101',
         passwordHash: hashPassword('password123'),
-        allowedCategories: ['Sales Meeting Expenses', 'Retail Store Expenses'],
+        allowedCategories: [
+          'Sales Meeting Expenses',
+          'Retail Store Expenses'
+        ],
       },
       {
         employeeId: 'NET001',
@@ -86,7 +98,10 @@ export const seedDB = async () => {
         department: 'Network',
         costCenter: 'CC-NET-201',
         passwordHash: hashPassword('password123'),
-        allowedCategories: ['Network Maintenance Expense', 'Network Meeting Expenses'],
+        allowedCategories: [
+          'Network Maintenance Expense',
+          'Network Meeting Expenses'
+        ],
       },
       {
         employeeId: 'fin_789',
@@ -95,6 +110,7 @@ export const seedDB = async () => {
         email: 'david.finance@airtel.com',
         department: 'Finance',
         costCenter: 'CC-FIN-102',
+        passwordHash: hashPassword('password123'),
       },
       {
         employeeId: 'fin_sam',
@@ -103,6 +119,7 @@ export const seedDB = async () => {
         email: 'sam.finance@airtel.com',
         department: 'Finance',
         costCenter: 'CC-FIN-102',
+        passwordHash: hashPassword('password123'),
       },
     ];
 
@@ -437,6 +454,63 @@ export const seedDB = async () => {
             costCenter: 'CC-ENG-402',
             expenseType: 'Reimbursable',
             history: [{ action: 'SUBMITTED', user: 'emp_jane', timestamp: new Date('2026-07-25T17:00:00Z') }]
+          },
+          {
+            id: 'EXP-2026-111',
+            employeeId: 'emp_jane',
+            employeeName: 'Jane Dev',
+            title: 'Multiple Receipt Relocation Claim',
+            status: 'Submitted',
+            amount: 8900,
+            reimbursementAmount: 8900,
+            receiptAmount: 8900,
+            invoiceDate: new Date('2026-07-26'),
+            submissionDate: new Date('2026-07-26T10:00:00Z'),
+            category: 'Relocation Expenses',
+            department: 'Engineering',
+            costCenter: 'CC-ENG-402',
+            expenseType: 'Reimbursable',
+            merchant: 'Air India',
+            invoiceNumber: 'AI-2026-554',
+            receiptUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
+            fileName: 'flight_ticket.png',
+            fileType: 'image/png',
+            fileSize: 180000,
+            receiptHash: 'mock-hash-seed-1',
+            invoiceFingerprint: 'mock-fingerprint-seed-1',
+            receipts: [
+              {
+                receiptUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
+                fileName: 'flight_ticket.png',
+                fileType: 'image/png',
+                fileSize: 180000,
+                amount: 5000,
+                tax: 450,
+                merchant: 'Air India',
+                invoiceNumber: 'AI-2026-554',
+                invoiceDate: new Date('2026-07-26'),
+                ocrOverallScore: 90,
+                ocrTimestamp: new Date('2026-07-26T10:00:00Z'),
+                receiptHash: 'mock-hash-seed-1',
+                invoiceFingerprint: 'mock-fingerprint-seed-1'
+              },
+              {
+                receiptUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?q=80&w=600&auto=format&fit=crop',
+                fileName: 'luggage_delivery.png',
+                fileType: 'image/png',
+                fileSize: 120000,
+                amount: 3900,
+                tax: 350,
+                merchant: 'Packers & Movers',
+                invoiceNumber: 'PM-9900-2',
+                invoiceDate: new Date('2026-07-26'),
+                ocrOverallScore: 85,
+                ocrTimestamp: new Date('2026-07-26T10:00:00Z'),
+                receiptHash: 'mock-hash-seed-2',
+                invoiceFingerprint: 'mock-fingerprint-seed-2'
+              }
+            ],
+            history: [{ action: 'SUBMITTED', user: 'emp_jane', timestamp: new Date('2026-07-26T10:00:00Z') }]
           }
         ];
 
@@ -476,6 +550,155 @@ export const seedDB = async () => {
         console.log('[Seed] Initial notifications seeded.');
       }
     }
+
+    // 4. Seed Expense Categories
+    const seedCategories = [
+      {
+        id: 'Conveyance',
+        label: 'Conveyance',
+        group: 'Travel & Tours',
+        subcategories: ['Auto Charges', 'Taxi Charges'],
+        aliases: ['conveyance', 'cab fare', 'taxi fare', 'auto fare', 'travel', 'cab', 'taxi', 'ola', 'uber'],
+      },
+      {
+        id: 'HR-related Expenses',
+        label: 'HR-related Expenses',
+        group: 'HR & Imprest',
+        subcategories: [
+          'Communication Expense CFA Limit',
+          'Handset',
+          'Joining / Recruitment Expense',
+          'Pantry Tea and Coffee Expense',
+          'Retail Plan Bill',
+          'Staff Welfare',
+          'Team Engagement Expense'
+        ],
+        aliases: ['hr expenses', 'hr-related', 'hr related', 'recruitment expense', 'office supplies', 'stationery', 'others'],
+      },
+      {
+        id: 'Imprest Reimbursement',
+        label: 'Imprest Reimbursement',
+        group: 'HR & Imprest',
+        subcategories: [
+          'CSE Call Center Engagement Expenses',
+          'Meeting Expenses',
+          'Pantry Tea and Coffee Expenses',
+          'Photocopy Expenses',
+          'Postable and Courier Expenses',
+          'Printing and Stationery',
+          'R&M Office',
+          'Rates and Taxes'
+        ],
+        aliases: ['imprest', 'imprest cash', 'petty cash'],
+      },
+      {
+        id: 'International Tour Expense',
+        label: 'International Tour Expense',
+        group: 'Travel & Tours',
+        subcategories: [
+          'Hotel Stay',
+          'International Communication Charges',
+          'International Conveyance Expenses',
+          'Laundry Expenses',
+          'Meals',
+          'Per Diem on International Travel',
+          'Visa Expenses'
+        ],
+        aliases: ['international tour', 'foreign travel', 'visa expense', 'intl tour'],
+      },
+      {
+        id: 'Network Maintenance Expense',
+        label: 'Network Maintenance Expense',
+        group: 'Operations',
+        subcategories: [
+          'Network Liaison Expenses',
+          'Network Maintenance Expense',
+          'Network Material Transportation',
+          'Network Misc. Expenses',
+          'Network Regulatory Expenses',
+          'Temp Other Route Allocation'
+        ],
+        aliases: ['network maintenance', 'fiber maintenance', 'mast repair', 'site maintenance', 'maintenance'],
+      },
+      {
+        id: 'Network Meeting Expenses',
+        label: 'Network Meeting Expenses',
+        group: 'Meetings',
+        subcategories: [
+          'Network Meeting Expenses'
+        ],
+        aliases: ['network meeting', 'telecom meeting', 'partner alignment'],
+      },
+      {
+        id: 'Retail Store Expenses',
+        label: 'Retail Store Expenses',
+        group: 'Operations',
+        subcategories: [
+          'Conveyance for Store Purpose',
+          'Courier Charges',
+          'Diesel for Store',
+          'Housekeeping Consumables',
+          'Kiosk ROL',
+          'Minor Store Repairs and Maintenance',
+          'Staff Engagement and Refreshments',
+          'Stationery',
+          'Uniform Stitching Expenses',
+          'Water Bill'
+        ],
+        aliases: ['retail store', 'own retail store', 'retail outlet', 'store maintenance', 'pos expense', 'store'],
+      },
+      {
+        id: 'Relocation Expenses',
+        label: 'Relocation Expenses',
+        group: 'Travel & Tours',
+        subcategories: [
+          'Airfare',
+          'Laundry Expenses',
+          'Meals',
+          'Taxi Charges',
+          'Train/Bus Travel',
+          'Vehicle Registration Expense'
+        ],
+        aliases: ['relocation', 'moving expense', 'shifter charge', 'brokerage'],
+      },
+      {
+        id: 'Sales Meeting Expenses',
+        label: 'Sales Meeting Expenses',
+        group: 'Meetings',
+        subcategories: [
+          'Sales Meeting Expense'
+        ],
+        aliases: ['sales meeting', 'client pitch', 'deal closure alignment', 'meals', 'entertainment', 'dining'],
+      },
+      {
+        id: 'Tour Bill',
+        label: 'Tour Bill',
+        group: 'Travel & Tours',
+        subcategories: [
+          'Air Travel',
+          'Auto Charges',
+          'Car Rental',
+          'Excess Baggage Charges',
+          'Insurance Expense for Overseas Tour',
+          'International Conveyance Expense',
+          'International Loading and Boarding',
+          'International Out-of-Pocket',
+          'Lodging',
+          'Meals etc.',
+          'Medical Expenses',
+          'Train/Bus Travel'
+        ],
+        aliases: ['tour bill', 'official tour', 'domestic travel bill'],
+      }
+    ];
+
+    for (const cat of seedCategories) {
+      await ExpenseCategory.findOneAndUpdate({ id: cat.id }, cat, {
+        upsert: true,
+        new: true,
+      });
+    }
+    console.log('[Seed] Expense Category profiles synced.');
 
     console.log('[Seed] Seeding completion check done.');
   } catch (err) {

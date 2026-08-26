@@ -9,6 +9,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.post('/', createExpenseValidator, expenseController.submitClaim);
+router.get('/categories', expenseController.getCategories);
 router.get('/my-claims', expenseController.getMyClaims);
 router.get('/:id', expenseController.getClaimDetails);
 router.put('/:id', createExpenseValidator, expenseController.updateClaim);

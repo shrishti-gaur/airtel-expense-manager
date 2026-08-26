@@ -4,22 +4,24 @@ import { isValidCategory, isValidSubcategory } from '../config/expenseCategories
 
 export const createExpenseValidator = [
   body('status').optional(),
+  body('receipts').optional().isArray().withMessage('Receipts must be an array'),
   
   // Validate expenseCategory (or fallback to legacy category if provided)
-  body('expenseCategory').custom((value, { req }) => {
+  body('expenseCategory').custom(async (value, { req }) => {
     if (req.body.status === 'Draft') return true;
     const cat = value || req.body.category;
     if (!cat || !cat.trim()) {
       throw new Error('Expense category is required');
     }
-    if (!isValidCategory(cat)) {
+    const valid = await isValidCategory(cat);
+    if (!valid) {
       throw new Error(`Invalid expense category: ${cat}`);
     }
     return true;
   }),
 
   // Validate expenseType (or subcategory)
-  body('expenseType').custom((value, { req }) => {
+  body('expenseType').custom(async (value, { req }) => {
     if (req.body.status === 'Draft') return true;
     const cat = req.body.expenseCategory || req.body.category;
     
@@ -28,17 +30,21 @@ export const createExpenseValidator = [
       subcat = req.body.subcategory;
     }
     
-    if (cat && isValidCategory(cat)) {
-      const method = req.body.submissionMethod || (req.body.conveyanceMethod === 'Per Kilometer' ? 'PER_KM' : (req.body.conveyanceMethod === 'Receipt Based' ? 'RECEIPT_BASED' : null));
-      if (cat === 'Conveyance' && method === 'PER_KM') {
-        return true; // Not required for PER_KM
-      }
-      
-      if (!subcat || !subcat.trim()) {
-        throw new Error('Expense type is required');
-      }
-      if (!isValidSubcategory(cat, subcat)) {
-        throw new Error(`Invalid expense type ${subcat} for category ${cat}`);
+    if (cat) {
+      const validCat = await isValidCategory(cat);
+      if (validCat) {
+        const method = req.body.submissionMethod || (req.body.conveyanceMethod === 'Per Kilometer' ? 'PER_KM' : (req.body.conveyanceMethod === 'Receipt Based' ? 'RECEIPT_BASED' : null));
+        if (cat === 'Conveyance' && method === 'PER_KM') {
+          return true; // Not required for PER_KM
+        }
+        
+        if (!subcat || !subcat.trim()) {
+          throw new Error('Expense type is required');
+        }
+        const validSub = await isValidSubcategory(cat, subcat);
+        if (!validSub) {
+          throw new Error(`Invalid expense type ${subcat} for category ${cat}`);
+        }
       }
     }
     return true;

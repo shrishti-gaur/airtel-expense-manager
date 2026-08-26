@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AlertTriangle, Sparkles, ChevronDown, ChevronUp, Search, Check } from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../../constants/expenseCategories';
+import StatusBadge from './StatusBadge';
+import { useUI } from '../../context/UIContext';
 
 /**
  * ExpenseDetails component rendering form fields and OCR placeholders
@@ -13,7 +15,11 @@ const ExpenseDetails = ({
   ocrOverallScore,
   ocrTimestamp,
   errors = {},
+  receipts = [],
+  activeIndex = 0,
+  claimData = null,
 }) => {
+  const { expenseCategories } = useUI();
   const [businessOpen, setBusinessOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
@@ -94,12 +100,13 @@ const ExpenseDetails = ({
     }
   };
 
-  const selectedCategoryConfig = EXPENSE_CATEGORIES.find(c => c.id === formData.category);
+  const categoriesList = expenseCategories && expenseCategories.length > 0 ? expenseCategories : EXPENSE_CATEGORIES;
+  const selectedCategoryConfig = categoriesList.find(c => c.id === formData.category);
   const hasSubcategories = selectedCategoryConfig && selectedCategoryConfig.subcategories && selectedCategoryConfig.subcategories.length > 0;
   const showSubcategoryField = hasSubcategories || (formData.subcategory && formData.subcategory.trim() !== '');
 
   // Filter categories by search term
-  const filteredCategories = EXPENSE_CATEGORIES.filter(cat => 
+  const filteredCategories = categoriesList.filter(cat => 
     cat.label.toLowerCase().includes(categorySearch.toLowerCase()) ||
     cat.group.toLowerCase().includes(categorySearch.toLowerCase())
   );
@@ -149,6 +156,21 @@ const ExpenseDetails = ({
     );
   };
 
+  const formatSubmissionDate = (isoString) => {
+    if (!isoString) return 'N/A';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -157,6 +179,48 @@ const ExpenseDetails = ({
         <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2.5 font-display text-left">
           1. Basic Details
         </h4>
+
+        {claimData && (
+          <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-4 mb-4 text-xs font-sans">
+            <div className="text-left">
+              <span className="text-slate-400 font-bold uppercase tracking-wider block">Claim ID</span>
+              <span className="font-mono font-bold text-slate-800 text-sm mt-0.5 block">{claimData.id}</span>
+            </div>
+            <div className="text-left">
+              <span className="text-slate-400 font-bold uppercase tracking-wider block">Employee Details</span>
+              <span className="font-extrabold text-slate-800 text-sm mt-0.5 block">
+                {claimData.employeeName || claimData.employee || 'Unknown Employee'}
+              </span>
+              <span className="text-slate-400 font-bold font-mono mt-0.5 block">ID: {claimData.employeeId || claimData.employee || 'N/A'}</span>
+            </div>
+            <div className="text-left">
+              <span className="text-slate-400 font-bold uppercase tracking-wider block">Submission Date</span>
+              <span className="font-bold text-slate-800 mt-0.5 block">
+                {formatSubmissionDate(claimData.submissionDate || claimData.createdAt)}
+              </span>
+            </div>
+            <div className="text-left">
+              <span className="text-slate-400 font-bold uppercase tracking-wider block">Current Status</span>
+              <span className="mt-1 block">
+                <StatusBadge status={claimData.status} />
+              </span>
+            </div>
+          </div>
+        )}
+
+        {receipts && receipts.length > 0 && (
+          <div className="rounded-xl bg-red-50/50 border border-red-100 p-4 flex items-center justify-between font-sans text-left shadow-xs">
+            <div>
+              <h5 className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Total Reimbursement Claimed</h5>
+              <p className="text-[11px] text-slate-500 mt-0.5">Calculated sum from all {receipts.length} attached receipts</p>
+            </div>
+            <div className="text-right">
+              <span className="text-base font-black text-red-650 font-display">
+                ₹{Number(formData.totalAmount || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-5 sm:grid-cols-2">
           {/* 1. Category selector spans full width in grid */}
@@ -357,7 +421,7 @@ const ExpenseDetails = ({
                     </select>
                   ))}
 
-                  {renderField('amount', 'Receipt / Reimbursement Amount', (
+                  {renderField('amount', receipts.length > 0 ? 'Receipt Amount (Active)' : 'Receipt / Reimbursement Amount', (
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm font-semibold">₹</span>
                       <input
@@ -414,7 +478,7 @@ const ExpenseDetails = ({
                 </>
               )}
             </>
-          ) : (formData.category === 'HR-related Expenses' || formData.category === 'Imprest Reimbursement' || formData.category === 'International Tour Expense') ? (
+          ) : (formData.category && formData.category !== 'Conveyance') ? (
             <>
               {renderField('invoiceDate', 'Receipt Date', (
                 <input
@@ -428,14 +492,14 @@ const ExpenseDetails = ({
                 />
               ))}
 
-              {renderField('subcategory', formData.category === 'HR-related Expenses' ? 'HR Expense Type' : formData.category === 'Imprest Reimbursement' ? 'Imprest Expense Type' : 'International Tour Expense Type', (
+              {hasSubcategories && renderField('subcategory', `${selectedCategoryConfig?.label || formData.category} Type`, (
                 <select
                   name="subcategory"
                   required
                   disabled={!isEditable}
                   value={formData.subcategory || ''}
                   onChange={onChange}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-505 font-sans font-semibold"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-550 font-sans font-semibold"
                 >
                   <option value="">-- Select Type --</option>
                   {selectedCategoryConfig?.subcategories?.map(sub => (
@@ -444,7 +508,7 @@ const ExpenseDetails = ({
                 </select>
               ))}
 
-              {renderField('amount', 'Receipt / Reimbursement Amount', (
+              {renderField('amount', receipts.length > 0 ? 'Receipt Amount (Active)' : 'Receipt / Reimbursement Amount', (
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm font-semibold">₹</span>
                   <input
@@ -467,7 +531,7 @@ const ExpenseDetails = ({
                   disabled={!isEditable}
                   value={formData.merchant || ''}
                   onChange={onChange}
-                  placeholder="e.g. Airtel Store / Vendor Name"
+                  placeholder="e.g. Vendor / Store Name"
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-sans font-medium"
                 />
               ))}
@@ -497,75 +561,6 @@ const ExpenseDetails = ({
                   />
                 </div>
               ))}
-
-
-            </>
-          ) : (formData.category === 'Network Maintenance Expense' || formData.category === 'Network Meeting Expenses' || formData.category === 'Retail Store Expenses' || formData.category === 'Relocation Expenses' || formData.category === 'Sales Meeting Expenses' || formData.category === 'Tour Bill') ? (
-            <>
-              {renderField('invoiceDate', 'Receipt Date', (
-                <input
-                  name="invoiceDate"
-                  type="date"
-                  required
-                  disabled={!isEditable}
-                  value={formData.invoiceDate || ''}
-                  onChange={onChange}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-sans font-medium"
-                />
-              ))}
-
-              {renderField('subcategory', 'Expense Type', (
-                <select
-                  name="subcategory"
-                  required
-                  disabled={!isEditable || formData.category === 'Network Meeting Expenses' || formData.category === 'Sales Meeting Expenses'}
-                  value={formData.subcategory || ''}
-                  onChange={onChange}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-505 font-sans font-semibold"
-                >
-                  {formData.category === 'Network Meeting Expenses' ? (
-                    <option value="Network Meeting Expenses">Network Meeting Expenses</option>
-                  ) : formData.category === 'Sales Meeting Expenses' ? (
-                    <option value="Sales Meeting Expense">Sales Meeting Expense</option>
-                  ) : (
-                    <>
-                      <option value="">-- Select Type --</option>
-                      {selectedCategoryConfig?.subcategories?.map(sub => (
-                        <option key={sub} value={sub}>{sub}</option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              ))}
-
-              {renderField('amount', 'Reimbursement Amount', (
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm font-semibold">₹</span>
-                  <input
-                    name="amount"
-                    type="number"
-                    required
-                    disabled={!isEditable}
-                    value={formData.amount || ''}
-                    onChange={onChange}
-                    placeholder="0.00"
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-7 pr-3 text-sm text-slate-800 placeholder-slate-400 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-sans font-medium"
-                  />
-                </div>
-              ))}
-
-              {renderField('invoiceNumber', 'Invoice Number', (
-                <input
-                  name="invoiceNumber"
-                  disabled={!isEditable}
-                  value={formData.invoiceNumber || ''}
-                  onChange={onChange}
-                  placeholder="e.g. INV-10029"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-red-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500 font-sans font-medium"
-                />
-              ))}
-
-
             </>
           ) : (
             <>
@@ -633,7 +628,7 @@ const ExpenseDetails = ({
                 </select>
               ))}
 
-              {renderField('amount', 'Claim Amount', (
+              {renderField('amount', receipts.length > 0 ? 'Receipt Amount (Active)' : 'Claim Amount', (
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm font-semibold">
                     {formData.currency === 'USD' ? '$' : formData.currency === 'EUR' ? '€' : formData.currency === 'GBP' ? '£' : '₹'}

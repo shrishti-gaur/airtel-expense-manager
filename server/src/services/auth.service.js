@@ -1,5 +1,6 @@
 import { Employee } from '../models/Employee.js';
 import { verifyPassword } from '../utils/hash.util.js';
+import { getAllowedCategoriesForManager } from '../utils/category.util.js';
 
 /**
  * Auth Service Database Implementation
@@ -24,14 +25,17 @@ export class AuthService {
       throw new Error(`Corporate account not registered for: ${email}`);
     }
 
-    if (employee.passwordHash) {
-      if (!password || !verifyPassword(password, employee.passwordHash)) {
-        throw new Error('Invalid authentication credentials');
-      }
+    if (!employee.passwordHash) {
+      throw new Error('Corporate account password has not been configured.');
+    }
+
+    if (!password || !verifyPassword(password, employee.passwordHash)) {
+      throw new Error('Invalid authentication credentials');
     }
 
     // Generate backward-compatible token with employee ID
     const token = `mock-${employee.role.toLowerCase()}-token-${employee.employeeId}`;
+    const allowedCategories = await getAllowedCategoriesForManager(employee);
 
     return {
       token,
@@ -42,7 +46,7 @@ export class AuthService {
         email: employee.email,
         department: employee.department,
         costCenter: employee.costCenter,
-        allowedCategories: employee.allowedCategories || [],
+        allowedCategories,
       },
     };
   }
@@ -66,13 +70,14 @@ export class AuthService {
       if (employeeId) {
         const employee = await Employee.findOne({ employeeId });
         if (employee) {
+          const allowedCategories = await getAllowedCategoriesForManager(employee);
           return {
             id: employee.employeeId,
             role: employee.role,
             name: employee.name,
             department: employee.department,
             costCenter: employee.costCenter,
-            allowedCategories: employee.allowedCategories || [],
+            allowedCategories,
           };
         }
       }

@@ -2,6 +2,7 @@ import { ExpenseClaim } from '../models/ExpenseClaim.js';
 import { Employee } from '../models/Employee.js';
 import { Notification } from '../models/Notification.js';
 import { ActivityLog } from '../models/ActivityLog.js';
+import { getAllowedCategoriesForManager } from '../utils/category.util.js';
 
 export class ManagerService {
   /**
@@ -17,8 +18,9 @@ export class ManagerService {
     }
 
     // Dynamic category-based filtering
+    const allowedCategories = await getAllowedCategoriesForManager(manager);
     const query = {
-      category: { $in: manager.allowedCategories || [] }
+      category: { $in: allowedCategories }
     };
 
     console.log('[Trace Log - Service] Querying pending claims from MongoDB with query:', query);
@@ -42,7 +44,8 @@ export class ManagerService {
 
     // SECURITY CHECK: Validate manager permissions on the specific claim's category
     const manager = await Employee.findOne({ employeeId: managerId });
-    if (!manager || !manager.allowedCategories.includes(claim.category)) {
+    const allowedCategories = await getAllowedCategoriesForManager(manager);
+    if (!manager || !allowedCategories.includes(claim.category)) {
       throw new Error('Access denied. Manager does not have permission to review claims under this category.');
     }
 
@@ -124,9 +127,10 @@ export class ManagerService {
       throw new Error('Manager profile not found');
     }
 
+    const allowedCategories = await getAllowedCategoriesForManager(manager);
     const query = {
       employeeId: { $regex: new RegExp(`^${employeeId.trim()}$`, 'i') },
-      category: { $in: manager.allowedCategories || [] }
+      category: { $in: allowedCategories }
     };
 
     console.log('[Trace Log - Service] Searching employee claims with query:', query);

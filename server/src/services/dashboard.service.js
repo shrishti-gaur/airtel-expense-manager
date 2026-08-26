@@ -1,5 +1,7 @@
 import { ExpenseClaim } from '../models/ExpenseClaim.js';
 import { ActivityLog } from '../models/ActivityLog.js';
+import { Employee } from '../models/Employee.js';
+import { getAllowedCategoriesForManager } from '../utils/category.util.js';
 
 export class DashboardService {
   /**
@@ -66,8 +68,11 @@ export class DashboardService {
 
     if (role === 'Manager') {
       // 2. Manager Dashboard Stats
+      const manager = await Employee.findOne({ employeeId: userId });
+      const allowedCategories = await getAllowedCategoriesForManager(manager);
+
       const stats = await ExpenseClaim.aggregate([
-        { $match: { department: { $in: ['Engineering', 'Sales'] } } },
+        { $match: { category: { $in: allowedCategories } } },
         {
           $group: {
             _id: null,
@@ -103,7 +108,7 @@ export class DashboardService {
 
       // Fetch pending requests for dashboard display
       const pendingClaims = await ExpenseClaim.find({
-        department: { $in: ['Engineering', 'Sales'] },
+        category: { $in: allowedCategories },
         status: 'Submitted',
       })
         .sort({ createdAt: -1 })
