@@ -87,7 +87,7 @@ export const seedDB = async () => {
         passwordHash: hashPassword('password123'),
         allowedCategories: [
           'Sales Meeting Expenses',
-          'Retail Store Expenses'
+          'Network Meeting Expenses'
         ],
       },
       {
@@ -100,7 +100,7 @@ export const seedDB = async () => {
         passwordHash: hashPassword('password123'),
         allowedCategories: [
           'Network Maintenance Expense',
-          'Network Meeting Expenses'
+          'Retail Store Expenses'
         ],
       },
       {

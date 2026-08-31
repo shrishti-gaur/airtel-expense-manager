@@ -26,6 +26,13 @@ const ManagerDashboard = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const getDashboardTitle = () => {
+    if (user?.department === 'Travel') return 'Travel Dashboard';
+    if (user?.department === 'HR') return 'HR & Imprest Dashboard';
+    if (user?.department === 'Network') return 'Network Dashboard';
+    if (user?.department === 'Sales') return 'Sales Dashboard';
+    return 'Manager Workspace';
+  };
   const [actioning, setActioning] = useState(null); // id of current claim being processed
 
   const location = useLocation();
@@ -461,7 +468,7 @@ const ManagerDashboard = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-left">
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 font-display">
-            Manager Workspace
+            {getDashboardTitle()}
           </h1>
           <p className="text-sm text-slate-500">
             Review, approve, or return expense claims filed by your cost center employees.
